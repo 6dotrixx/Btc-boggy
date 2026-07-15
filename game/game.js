@@ -133,6 +133,7 @@ function initPlayerFromHero(h) {
 let bullets = [], ebullets = [], enemies = [], particles = [], floaters = [];
 let coins = 0, room = 1, level = 1, xp = 0, xpNext = 3;
 let roomTarget = 0, roomActive = false, spawnTimer = 0, toSpawn = [];
+let upgradeTimer = 0;   // pending room-clear timeout, cancelled on restart/death/warp
 
 // ---------- Space-monster archetypes (original) ----------
 const ENEMY_TYPES = {
@@ -142,6 +143,27 @@ const ENEMY_TYPES = {
   starwisp: { r:12, hp:26, speed:95,  color:'#4ad6c0', touch:10, score:2, ai:'orbit',  shape:'wisp', fireEvery:2.4, projSpeed:180 },
   devourer: { r:26, hp:150, speed:34, color:'#ff4d5e', touch:26, score:5, ai:'chase',  shape:'maw' },
 };
+
+// ---------- Bosses (every 5th sector) ----------
+const BOSS_TYPES = [
+  { name:'RIFTMAW SOVEREIGN', color:'#ff4d5e', shape:'maw',    r:36 },
+  { name:'VOID TYRANT',       color:'#b06bff', shape:'spiky',  r:34 },
+  { name:'STAR DEVOURER',     color:'#4ad6c0', shape:'horned', r:36 },
+];
+
+function spawnBoss(n) {
+  const def = BOSS_TYPES[((n / 5 - 1) | 0) % BOSS_TYPES.length];
+  const hp = 340 + n * 46;
+  enemies.push({
+    kind: 'devourer', boss: true, name: def.name,
+    x: WORLD.w / 2, y: 150, r: def.r, color: def.color, shape: def.shape,
+    hp, maxHp: hp, speed: 42, touch: 30, ai: 'boss',
+    attackCd: 1.6, patternIdx: 0,
+    orbT: rand(0, TAU), chargeVX: 0, chargeVY: 0, charging: 0,
+    flash: 0, wobble: rand(0, TAU),
+  });
+  floaters.push({ x: WORLD.w / 2, y: 260, txt: def.name + ' AWAKENS', t: 1.8, crit: true, vy: -10 });
+}
 
 // ---------- Upgrade pool (space-weapon names) ----------
 const UPGRADES = [
@@ -175,13 +197,18 @@ function pickUpgrades(n) {
 // ---------- Sector / wave generation ----------
 function buildRoom(n) {
   roomActive = true; toSpawn = []; spawnTimer = 0;
+  if (n % 5 === 0) {          // boss sector
+    roomTarget = 1;
+    spawnBoss(n);
+    return;
+  }
   const budget = 3 + n * 1.7;
   let spent = 0;
   while (spent < budget) {
     let choices = ['voidling'];
     if (n >= 2) choices.push('glowspit');
     if (n >= 3) choices.push('ramhorn', 'starwisp');
-    if (n >= 5 && Math.random() < 0.28) choices.push('devourer');
+    if (n >= 6 && Math.random() < 0.28) choices.push('devourer');
     const k = choices[Math.floor(Math.random() * choices.length)];
     toSpawn.push(k); spent += ENEMY_TYPES[k].score;
   }
@@ -241,6 +268,12 @@ function nearestEnemy() {
   return best;
 }
 
+function nearestEnemyTo(p) {
+  let best = null, bd = Infinity;
+  for (const e of enemies) { const d = dist2(e, p); if (d < bd) { bd = d; best = e; } }
+  return best;
+}
+
 function damageEnemy(e, dmg, isCrit) {
   e.hp -= dmg; e.flash = 0.12;
   floaters.push({ x: e.x, y: e.y - e.r, txt: Math.round(dmg), t: 0.6, crit: isCrit, vy: -40 });
@@ -250,8 +283,9 @@ function damageEnemy(e, dmg, isCrit) {
 
 function killEnemy(e) {
   const idx = enemies.indexOf(e); if (idx >= 0) enemies.splice(idx, 1);
-  spawnParticles(e.x, e.y, e.color, 14);
-  const gain = ENEMY_TYPES[e.kind].score;
+  spawnParticles(e.x, e.y, e.color, e.boss ? 40 : 14);
+  const gain = e.boss ? 25 : ENEMY_TYPES[e.kind].score;
+  if (e.boss) floaters.push({ x: e.x, y: e.y - 40, txt: e.name + ' DOWN', t: 1.6, crit: true, vy: -12 });
   coins += gain;
   floaters.push({ x: e.x, y: e.y, txt: '+' + gain, t: 0.8, coin: true, vy: -30 });
   xp += gain;
@@ -260,9 +294,10 @@ function killEnemy(e) {
 
 function heal(v) { player.hp = clamp(player.hp + v, 0, player.maxHp); }
 
+let shake = 0;
 function hurtPlayer(v) {
   if (player.inv > 0) return;
-  player.hp -= v; player.inv = 0.6;
+  player.hp -= v; player.inv = 0.6; shake = 0.3;
   spawnParticles(player.x, player.y, '#ff5a7a', 8);
   if (player.hp <= 0) { player.hp = 0; gameOver(); }
 }
@@ -302,7 +337,7 @@ function update(dt) {
   updateBullets(dt); updateEnemies(dt); updateEbullets(dt); updateParticles(dt);
 
   if (roomActive && toSpawn.length === 0 && enemies.length === 0) {
-    roomActive = false; setTimeout(openUpgrades, 350);
+    roomActive = false; upgradeTimer = setTimeout(openUpgrades, 350);
   }
 }
 
@@ -313,7 +348,7 @@ function updateBullets(dt) {
 
     // ---- special motion ----
     if (b.behavior === 'homing') {
-      const t = nearestEnemy();
+      const t = nearestEnemyTo(b);
       if (t) {
         const desired = Math.atan2(t.y - b.y, t.x - b.x);
         const cur = Math.atan2(b.vy, b.vx);
@@ -324,6 +359,7 @@ function updateBullets(dt) {
         b.vx = Math.cos(a) * b.speed; b.vy = Math.sin(a) * b.speed;
       }
     } else if (b.behavior === 'boomerang') {
+      if (b.age > 4) { bullets.splice(i, 1); continue; }   // hard cap: never live forever
       if (b.age >= b.turnAt) {                        // curve back toward the ship
         const a = Math.atan2(player.y - b.y, player.x - b.x);
         const cur = Math.atan2(b.vy, b.vx);
@@ -389,6 +425,30 @@ function updateEnemies(dt) {
         e.chargeCd -= dt;
         if (e.chargeCd <= 0 && d < 320) { e.charging = 0.5; e.chargeVX = Math.cos(ang) * 330; e.chargeVY = Math.sin(ang) * 330; e.chargeCd = rand(2, 3.5); }
       }
+    } else if (e.ai === 'boss') {
+      if (e.charging > 0) {
+        e.charging -= dt; e.x += e.chargeVX * dt; e.y += e.chargeVY * dt;
+      } else {
+        // hold mid-range from the player
+        const want = 230, dir = d > want ? 1 : -0.7;
+        e.x += Math.cos(ang) * e.speed * dt * dir; e.y += Math.sin(ang) * e.speed * dt * dir;
+      }
+      e.attackCd -= dt;
+      if (e.attackCd <= 0 && e.charging <= 0) {
+        const pattern = ['radial', 'fan', 'summon', 'charge'][e.patternIdx % 4];
+        e.patternIdx++;
+        if (pattern === 'radial') {
+          for (let i = 0; i < 14; i++) { const a = i / 14 * TAU + e.wobble; bossShoot(e, a, 150); }
+        } else if (pattern === 'fan') {
+          for (let i = -2; i <= 2; i++) bossShoot(e, ang + i * 0.22, 240);
+        } else if (pattern === 'summon') {
+          const cap = Math.max(0, 8 - enemies.length);
+          for (let i = 0; i < Math.min(3, cap); i++) spawnEnemy('voidling');
+        } else if (pattern === 'charge') {
+          e.charging = 0.6; e.chargeVX = Math.cos(ang) * 340; e.chargeVY = Math.sin(ang) * 340;
+        }
+        e.attackCd = 2.0;
+      }
     }
     e.x = clamp(e.x, e.r, WORLD.w - e.r); e.y = clamp(e.y, e.r, WORLD.h - e.r);
     const rr = e.r + player.r;
@@ -398,6 +458,11 @@ function updateEnemies(dt) {
 
 function enemyShoot(e, ang) {
   ebullets.push({ x: e.x, y: e.y, vx: Math.cos(ang) * e.projSpeed, vy: Math.sin(ang) * e.projSpeed, r: 6, life: 4, color: e.color });
+}
+
+function bossShoot(e, ang, speed) {
+  ebullets.push({ x: e.x + Math.cos(ang) * e.r, y: e.y + Math.sin(ang) * e.r,
+    vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed, r: 7, life: 6, color: e.color });
 }
 
 function updateEbullets(dt) {
@@ -472,6 +537,17 @@ function drawMonster(e) {
     ctx.fillStyle = '#2a0008'; ctx.beginPath(); ctx.moveTo(0, 0);
     ctx.arc(0, 0, e.r * 0.9, ea - gape, ea + gape); ctx.closePath(); ctx.fill();
   }
+  // crown for bosses
+  if (e.boss) {
+    ctx.strokeStyle = 'rgba(255,209,90,.9)'; ctx.lineWidth = 3;
+    for (let i = 0; i < 5; i++) {
+      const a = -Math.PI / 2 + (i - 2) * 0.32;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * (e.r + 2), Math.sin(a) * (e.r + 2));
+      ctx.lineTo(Math.cos(a) * (e.r + 12 + (i % 2 ? 0 : 5)), Math.sin(a) * (e.r + 12 + (i % 2 ? 0 : 5)));
+      ctx.stroke();
+    }
+  }
   // eye
   ctx.fillStyle = '#05060f';
   ctx.beginPath(); ctx.arc(Math.cos(ea) * e.r * 0.35, Math.sin(ea) * e.r * 0.35, e.r * 0.24, 0, TAU); ctx.fill();
@@ -479,7 +555,15 @@ function drawMonster(e) {
   ctx.beginPath(); ctx.arc(Math.cos(ea) * e.r * 0.42, Math.sin(ea) * e.r * 0.42, e.r * 0.09, 0, TAU); ctx.fill();
   ctx.restore();
 
-  if (e.hp < e.maxHp) {
+  if (e.boss) {
+    // big boss bar across the top of the arena
+    const bw = WORLD.w - 80, bh = 10, bx = 40, by = 86;
+    ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(bx - 2, by - 2, bw + 4, bh + 4);
+    ctx.fillStyle = e.color; ctx.fillRect(bx, by, bw * clamp(e.hp / e.maxHp, 0, 1), bh);
+    ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 1; ctx.strokeRect(bx - 2, by - 2, bw + 4, bh + 4);
+    ctx.textAlign = 'center'; ctx.font = 'bold 13px system-ui'; ctx.fillStyle = '#eaf2ff';
+    ctx.fillText(e.name, WORLD.w / 2, by - 8);
+  } else if (e.hp < e.maxHp) {
     const w = e.r * 2, h = 4;
     ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(e.x - w / 2, e.y - e.r - 10, w, h);
     ctx.fillStyle = '#ff6b8a'; ctx.fillRect(e.x - w / 2, e.y - e.r - 10, w * clamp(e.hp / e.maxHp, 0, 1), h);
@@ -507,6 +591,7 @@ function drawShip() {
 
 function draw() {
   ctx.setTransform(scale, 0, 0, scale, offX, offY);
+  if (shake > 0) { shake = Math.max(0, shake - 0.016); ctx.translate(rand(-1, 1) * shake * 12, rand(-1, 1) * shake * 12); }
   drawBackground();
   if (state === State.START || state === State.HEROES) return;
 
@@ -572,6 +657,7 @@ function openHeroes() {
 }
 
 function startGame(h) {
+  clearTimeout(upgradeTimer);
   heroDef = h; initPlayerFromHero(h);
   bullets = []; ebullets = []; enemies = []; particles = []; floaters = [];
   coins = 0; room = 1; level = 1; xp = 0; xpNext = 3;
@@ -590,10 +676,12 @@ function weaponOffer() {
 }
 
 function openUpgrades() {
+  if (state !== State.PLAY) return;   // guard: player died or restarted during the delay
   state = State.UPGRADE;
   const picks = pickUpgrades(3);
-  // from sector 2 on, a new weapon sometimes shows up in place of one card
-  if (room >= 2 && Math.random() < 0.4) picks[Math.floor(Math.random() * picks.length)] = weaponOffer();
+  // from sector 2 on, a new weapon sometimes shows up in place of one card;
+  // clearing a boss sector guarantees one
+  if (room % 5 === 0 || (room >= 2 && Math.random() < 0.4)) picks[Math.floor(Math.random() * picks.length)] = weaponOffer();
   const wrap = el('cards'); wrap.innerHTML = '';
   for (const u of picks) {
     const c = document.createElement('div');
@@ -612,6 +700,7 @@ function nextRoom() {
 }
 
 function gameOver() {
+  clearTimeout(upgradeTimer);
   state = State.OVER;
   el('overStats').innerHTML =
     `<b>${heroDef.name}</b> reached <b>Sector ${room}</b> · Rank ${level}<br>Salvaged <b>${coins}</b> crystals from the drift.`;
@@ -630,5 +719,20 @@ function loop() {
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
+
+// ---------- Debug / automation hook (harmless in production) ----------
+window.NOVA_DEBUG = {
+  snapshot: () => ({
+    state, room, level, coins,
+    hp: player.hp, maxHp: player.maxHp,
+    enemies: enemies.length, boss: enemies.some(e => e.boss),
+    bullets: bullets.length, ebullets: ebullets.length,
+    weapon: player.weapon ? player.weapon.name : null,
+  }),
+  warpTo: n => { if (state !== State.PLAY) return false; clearTimeout(upgradeTimer); enemies = []; ebullets = []; toSpawn = []; room = n; buildRoom(n); return true; },
+  setWeapon: id => { if (WEAPONS[id]) { player.weapon = WEAPONS[id]; return true; } return false; },
+  buff: (dmg, hp) => { player.dmg = dmg; player.maxHp = hp; player.hp = hp; },
+  weapons: Object.keys(WEAPONS),
+};
 
 })();

@@ -37,8 +37,15 @@ Open `index.html` in any modern browser. No build step, no dependencies.
 - 12 stackable weapon upgrades across common / rare / epic tiers that stack
   on top of any weapon (Split Cannon, Rail Slug, Bouncer Rounds, Wing Guns,
   Siphon Beam, …)
+- Boss sectors every 5th sector: three rotating crowned sovereigns
+  (Riftmaw Sovereign, Void Tyrant, Star Devourer) with a named health bar
+  and a four-phase attack cycle — radial burst, aimed fan, minion summon,
+  and charge. Boss kills pay 25 crystals and guarantee a weapon offer.
 - Sector-by-sector difficulty scaling, ranks, and a death/restart loop
-- Parallax starfield + nebula backdrop, dodgeable enemy fire, particles
+- Parallax starfield + nebula backdrop, dodgeable enemy fire, particles,
+  screen shake on hits
+- `window.NOVA_DEBUG` automation hook (snapshot / warpTo / setWeapon / buff)
+  for scripted QA and balance testing
 
 ## Structure
 
