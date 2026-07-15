@@ -108,10 +108,10 @@ const HEROES = [
 const WEAPONS = {
   pulse:   { name:'Pulse Blaster', ico:'🔫', fireRate:1.00, dmgMult:1.0, projSpeed:480, count:1, spread:0.16, r:5, range:1.0,  color:'#bfefff', behavior:'straight',  desc:'Fast, accurate energy bolts' },
   rail:    { name:'Rail Lance',    ico:'🔩', fireRate:1.55, dmgMult:2.3, projSpeed:640, count:1, spread:0.04, r:7, range:1.2,  color:'#8fdcff', behavior:'straight', pierce:3, desc:'Slow, heavy shots that punch through' },
-  scatter: { name:'Scatter Coil',  ico:'💠', fireRate:0.90, dmgMult:0.55,projSpeed:430, count:5, spread:0.42, r:4, range:0.55, color:'#ffd15a', behavior:'straight',  desc:'A short-range blast of pellets' },
+  scatter: { name:'Scatter Coil',  ico:'💠', fireRate:0.80, dmgMult:0.70,projSpeed:430, count:5, spread:0.30, r:4, range:0.85, color:'#ffd15a', behavior:'straight',  desc:'A short-range blast of pellets' },
   spore:   { name:'Spore Burst',   ico:'🌱', fireRate:1.10, dmgMult:0.8, projSpeed:300, count:3, spread:0.30, r:6, range:1.4,  color:'#7bffb0', behavior:'homing',   desc:'Living spores that seek prey' },
   nova:    { name:'Nova Orb',      ico:'🌀', fireRate:1.35, dmgMult:1.5, projSpeed:250, count:1, spread:0.0,  r:9, range:1.6,  color:'#c07bff', behavior:'homing', pierce:1, desc:'A slow orb that hunts down foes' },
-  disc:    { name:'Saw Disc',      ico:'🪀', fireRate:1.25, dmgMult:1.1, projSpeed:420, count:1, spread:0.10, r:8, range:1.0,  color:'#5ad1ff', behavior:'boomerang', pierce:99, desc:'A blade that flies out and returns' },
+  disc:    { name:'Saw Disc',      ico:'🪀', fireRate:0.95, dmgMult:1.0, projSpeed:420, count:2, spread:0.55, r:8, range:1.0,  color:'#5ad1ff', behavior:'boomerang', pierce:99, desc:'Twin blades that fly out and return' },
 };
 let heroDef = HEROES[0];
 
@@ -249,14 +249,16 @@ function fire() {
   if (player.backShot) shots.push(baseAng + Math.PI);
   const dmg = player.dmg * w.dmgMult;
   const speed = w.projSpeed;
-  const life = (player.range * w.range) / speed + 0.1;
+  const flight = (player.range * w.range) / speed;      // time to cover full range
+  // boomerangs fly the whole range out, then need time to curve home
+  const life = w.behavior === 'boomerang' ? flight * 2 + 0.5 : flight + 0.1;
   for (const ang of shots) {
     bullets.push({
       x: player.x + Math.cos(ang) * player.r, y: player.y + Math.sin(ang) * player.r,
       vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed, speed,
       r: w.r, life, dmg, color: w.color,
       pierce: player.pierce + (w.pierce || 0), ricochet: player.ricochet, hitSet: new Set(),
-      behavior: w.behavior, age: 0, turnAt: life * 0.42,
+      behavior: w.behavior, age: 0, turnAt: flight,
     });
   }
   spawnParticles(player.x + Math.cos(baseAng) * player.r, player.y + Math.sin(baseAng) * player.r, w.color, 3);
@@ -360,6 +362,7 @@ function updateBullets(dt) {
       }
     } else if (b.behavior === 'boomerang') {
       if (b.age > 4) { bullets.splice(i, 1); continue; }   // hard cap: never live forever
+      if (b.age >= b.turnAt && !b.returned) { b.returned = true; b.hitSet.clear(); }  // return pass re-hits
       if (b.age >= b.turnAt) {                        // curve back toward the ship
         const a = Math.atan2(player.y - b.y, player.x - b.x);
         const cur = Math.atan2(b.vy, b.vx);
