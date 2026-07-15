@@ -1,10 +1,11 @@
-# Rift Runner
+# Nova Guardians
 
-An original roguelite arcade shooter for the browser. Move to dodge, stop to
-fire — clear each room, then pick a power and descend deeper into the rift.
+An original cosmic roguelite arcade shooter for the browser. Pick a galactic
+guardian, fly to dodge, hold still to unload your guns — clear each sector of
+space monsters, then salvage a new power and push deeper into the drift.
 
-It shares the *genre feel* of move/stop/shoot roguelites, but all art, names,
-enemies, weapons, numbers, and code here are original.
+It shares the *genre feel* of move/stop/shoot roguelites, but all heroes,
+monsters, art, names, weapons, numbers, and code here are original.
 
 ## Play
 
@@ -16,12 +17,15 @@ Open `index.html` in any modern browser. No build step, no dependencies.
 
 ## Features
 
+- 4 playable guardians, each with a different ship and starting edge
+  (Vex Corran, Kaela Vorn, Thornroot, Rax-9)
 - Move-to-dodge / stop-to-shoot combat with auto-targeting
-- 5 enemy archetypes with distinct AI (chaser, spitter, charger, orbiter, brute)
-- 12 stackable upgrades across common / rare / epic tiers
-  (multishot, pierce, ricochet, crit, flank/rear fire, lifesteal, …)
-- Room-by-room difficulty scaling, XP levels, and a death/restart loop
-- Dodgeable enemy projectiles, particles, floating damage numbers
+- 5 space-monster archetypes with distinct AI
+  (voidling, glowspit, ramhorn, starwisp, devourer)
+- 12 stackable weapon upgrades across common / rare / epic tiers
+  (Split Cannon, Rail Slug, Bouncer Rounds, Wing Guns, Siphon Beam, …)
+- Sector-by-sector difficulty scaling, ranks, and a death/restart loop
+- Parallax starfield + nebula backdrop, dodgeable enemy fire, particles
 
 ## Structure
 
