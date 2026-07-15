@@ -84,14 +84,20 @@ const State = { START: 0, HEROES: 1, PLAY: 2, UPGRADE: 3, OVER: 4 };
 let state = State.START;
 
 // ---------- Guardian roster (original heroes) ----------
+// Portrait art (generated). Falls back to the emoji icon if a URL fails to load.
+const ART = 'https://d8j0ntlcm91z4.cloudfront.net/user_3F047Iq9Ue5VPXNvJsfVjZtSn7t/';
 const HEROES = [
   { id:'vex',  ico:'🛰️', name:'Vex Corran',  role:'Ace Pilot',  color:'#5ad1ff', perk:'Fast guns, quick fire rate',
+    art: ART + 'hf_20260715_042729_5db1705c-999c-42f0-894e-4520138991f7.png',
     base:{ fireRate:0.50, dmg:9,  maxHp:90,  speed:230 } },
   { id:'kaela',ico:'🛡️', name:'Kaela Vorn',  role:'Warbreaker', color:'#ff5a7a', perk:'Heavy hull, hits like a truck',
+    art: ART + 'hf_20260715_042734_aacc6351-e693-4347-b296-3282283cb654.png',
     base:{ fireRate:0.72, dmg:14, maxHp:140, speed:190 } },
   { id:'thorn',ico:'🌿', name:'Thornroot',   role:'Wildkin',    color:'#4ad682', perk:'Siphons life from every hit',
+    art: ART + 'hf_20260715_042739_6afc0d6a-44f4-4320-a7fe-147629acbe78.png',
     base:{ fireRate:0.62, dmg:10, maxHp:110, speed:205, lifesteal:0.05 } },
   { id:'rax',  ico:'🤖', name:'Rax-9',       role:'Gun Drone',  color:'#ffa24a', perk:'Twin cannons — fires 2 shots',
+    art: ART + 'hf_20260715_042743_b95d7616-9a13-410d-bf76-4ec6b2eed2f9.png',
     base:{ fireRate:0.66, dmg:9,  maxHp:100, speed:205, multishot:2 } },
 ];
 let heroDef = HEROES[0];
@@ -487,7 +493,12 @@ function openHeroes() {
   for (const h of HEROES) {
     const c = document.createElement('div');
     c.className = 'hero';
-    c.innerHTML = `<div class="av" style="background:${h.color}22;border:1px solid ${h.color}66">${h.ico}</div>
+    c.style.setProperty('--hc', h.color);
+    const portrait = h.art
+      ? `<img class="art" src="${h.art}" alt="${h.name}" loading="lazy"
+           onerror="this.parentNode.innerHTML='&lt;div class=&quot;av&quot;&gt;${h.ico}&lt;/div&gt;'">`
+      : `<div class="av">${h.ico}</div>`;
+    c.innerHTML = `<div class="portrait" style="background:${h.color}18;border-color:${h.color}55">${portrait}</div>
       <div class="hn" style="color:${h.color}">${h.name}</div>
       <div class="hr">${h.role}</div><div class="hp">${h.perk}</div>`;
     c.onclick = () => startGame(h);
