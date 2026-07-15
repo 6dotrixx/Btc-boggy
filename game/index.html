@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Rift Runner</title>
+<style>
+  :root { --accent:#5ad1ff; --bg:#0d1018; }
+  * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  html,body { height:100%; background:var(--bg); overflow:hidden; font-family:'Segoe UI',system-ui,sans-serif; color:#eaf2ff; }
+  #wrap { position:relative; width:100vw; height:100vh; display:flex; align-items:center; justify-content:center; }
+  canvas { background:#11151f; touch-action:none; display:block; box-shadow:0 0 40px rgba(0,0,0,.6); }
+
+  .overlay { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:rgba(8,10,16,.86); backdrop-filter:blur(4px); text-align:center; padding:24px; z-index:10; }
+  .hidden { display:none !important; }
+  h1 { font-size:clamp(32px,7vw,64px); letter-spacing:2px; margin-bottom:8px;
+    background:linear-gradient(90deg,#5ad1ff,#a97bff); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .sub { opacity:.7; margin-bottom:28px; font-size:15px; max-width:440px; line-height:1.5; }
+  .btn { background:linear-gradient(90deg,#5ad1ff,#4a9fff); color:#05121f; border:none; font-weight:700;
+    font-size:18px; padding:14px 42px; border-radius:40px; cursor:pointer; letter-spacing:1px;
+    box-shadow:0 6px 24px rgba(90,209,255,.35); transition:transform .1s; }
+  .btn:active { transform:scale(.95); }
+  .stat-line { opacity:.8; margin-top:18px; font-size:14px; }
+
+  /* Upgrade cards */
+  #upgrade .cards { display:flex; gap:16px; flex-wrap:wrap; justify-content:center; margin-top:10px; }
+  .card { width:180px; background:#161c2b; border:1px solid #2a3550; border-radius:16px; padding:20px 16px;
+    cursor:pointer; transition:transform .12s, border-color .12s, box-shadow .12s; }
+  .card:hover { transform:translateY(-6px); border-color:var(--accent); box-shadow:0 10px 30px rgba(90,209,255,.25); }
+  .card .ico { font-size:40px; margin-bottom:10px; }
+  .card .name { font-weight:700; font-size:17px; margin-bottom:6px; }
+  .card .desc { font-size:13px; opacity:.7; line-height:1.4; }
+  .card .rar { font-size:11px; text-transform:uppercase; letter-spacing:1px; margin-top:10px; opacity:.9; }
+
+  /* HUD */
+  #hud { position:absolute; top:0; left:0; right:0; padding:12px 16px; z-index:5; pointer-events:none;
+    display:flex; justify-content:space-between; align-items:flex-start; font-size:14px; font-weight:600; }
+  #hud .right { text-align:right; }
+  .bar { width:min(46vw,220px); height:14px; background:#0a0d14; border:1px solid #2a3550; border-radius:8px; overflow:hidden; margin-top:4px; }
+  .bar > i { display:block; height:100%; background:linear-gradient(90deg,#ff5a7a,#ff9a5a); width:100%; transition:width .15s; }
+  .pill { display:inline-block; background:#161c2b; border:1px solid #2a3550; padding:4px 10px; border-radius:20px; }
+
+  #joyhint { position:absolute; bottom:20px; left:0; right:0; text-align:center; font-size:13px; opacity:.45; z-index:5; pointer-events:none; }
+  .credit { position:absolute; bottom:10px; font-size:11px; opacity:.35; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="c"></canvas>
+
+  <div id="hud" class="hidden">
+    <div class="left">
+      <div>❤️ HP</div>
+      <div class="bar"><i id="hpbar"></i></div>
+      <div style="margin-top:8px">Room <span id="room">1</span></div>
+    </div>
+    <div class="right">
+      <div>🪙 <span id="coins">0</span></div>
+      <div style="margin-top:6px" class="pill">Lv <span id="level">1</span></div>
+    </div>
+  </div>
+
+  <div id="joyhint" class="hidden">Drag anywhere to move · stop moving to shoot</div>
+
+  <!-- Start screen -->
+  <div id="start" class="overlay">
+    <h1>RIFT RUNNER</h1>
+    <p class="sub">A roguelite arcade shooter. Move to dodge, stop to fire.
+      Clear each room, then pick a power. How deep into the rift can you fall?</p>
+    <button class="btn" id="startBtn">PLAY</button>
+    <div class="stat-line">Move: <b>WASD / Arrows</b> or <b>drag</b> &nbsp;·&nbsp; Auto-fire when still</div>
+    <div class="credit">An original game — inspired by the roguelite-shooter genre.</div>
+  </div>
+
+  <!-- Upgrade screen -->
+  <div id="upgrade" class="overlay hidden">
+    <h1 style="font-size:34px">CHOOSE A POWER</h1>
+    <p class="sub" style="margin-bottom:6px">Room cleared. Pick one upgrade.</p>
+    <div class="cards" id="cards"></div>
+  </div>
+
+  <!-- Game over -->
+  <div id="over" class="overlay hidden">
+    <h1 style="background:linear-gradient(90deg,#ff5a7a,#ffa15a);-webkit-background-clip:text;background-clip:text;color:transparent">RUN ENDED</h1>
+    <p class="sub" id="overStats">You fell in the rift.</p>
+    <button class="btn" id="againBtn">RUN AGAIN</button>
+  </div>
+</div>
+
+<script src="game.js"></script>
+</body>
+</html>
