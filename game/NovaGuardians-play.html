@@ -206,16 +206,16 @@ let state = State.START;
 const ART = 'https://d8j0ntlcm91z4.cloudfront.net/user_3F047Iq9Ue5VPXNvJsfVjZtSn7t/';
 const HEROES = [
   { id:'vex',  ico:'🛰️', name:'Vex Corran',  role:'Ace Pilot',  color:'#5ad1ff', perk:'Fast guns, quick fire rate',
-    art: ART + 'hf_20260715_042729_5db1705c-999c-42f0-894e-4520138991f7.png',
+    art: ART + 'hf_20260715_055144_9ff907b8-a2ec-4979-abfe-035bfff52b5e.png',
     base:{ fireRate:0.50, dmg:9,  maxHp:90,  speed:230, weapon:'pulse' } },
   { id:'kaela',ico:'🛡️', name:'Kaela Vorn',  role:'Warbreaker', color:'#ff5a7a', perk:'Rail Lance — slow, armor-piercing cannon',
-    art: ART + 'hf_20260715_042734_aacc6351-e693-4347-b296-3282283cb654.png',
+    art: ART + 'hf_20260715_055149_d5456b00-5f84-4a0a-907e-0da1b71b9ef2.png',
     base:{ fireRate:0.72, dmg:14, maxHp:140, speed:190, weapon:'rail' } },
   { id:'thorn',ico:'🌿', name:'Thornroot',   role:'Wildkin',    color:'#4ad682', perk:'Spore Burst — homing spores + lifesteal',
-    art: ART + 'hf_20260715_042739_6afc0d6a-44f4-4320-a7fe-147629acbe78.png',
+    art: ART + 'hf_20260715_055153_58a1ad55-ad2f-48b7-afce-806de6102595.png',
     base:{ fireRate:0.62, dmg:10, maxHp:110, speed:205, lifesteal:0.05, weapon:'spore' } },
   { id:'rax',  ico:'🤖', name:'Rax-9',       role:'Gun Drone',  color:'#ffa24a', perk:'Scatter Coil — twin spread cannons',
-    art: ART + 'hf_20260715_042743_b95d7616-9a13-410d-bf76-4ec6b2eed2f9.png',
+    art: ART + 'hf_20260715_055157_26ffa1aa-4873-4b6b-9f18-fff84ea435fc.png',
     base:{ fireRate:0.66, dmg:9,  maxHp:100, speed:205, weapon:'scatter' } },
 ];
 
@@ -251,7 +251,8 @@ function initPlayerFromHero(h) {
 let bullets = [], ebullets = [], enemies = [], particles = [], floaters = [];
 let coins = 0, room = 1, level = 1, xp = 0, xpNext = 3;
 let roomTarget = 0, roomActive = false, spawnTimer = 0, toSpawn = [];
-let upgradeTimer = 0;   // pending room-clear timeout, cancelled on restart/death/warp
+let portal = null;      // appears when a room is cleared; fly in to advance
+let warpFx = 0;         // star-streak transition when entering a new room
 
 // ---------- Space-monster archetypes (original) ----------
 const ENEMY_TYPES = {
@@ -456,9 +457,18 @@ function update(dt) {
 
   updateBullets(dt); updateEnemies(dt); updateEbullets(dt); updateParticles(dt);
 
+  // room cleared → open a portal; the guardian must fly into it to advance
   if (roomActive && toSpawn.length === 0 && enemies.length === 0) {
-    roomActive = false; upgradeTimer = setTimeout(openUpgrades, 350);
+    roomActive = false;
+    portal = { x: WORLD.w / 2, y: 110, r: 30, t: 0 };
+    floaters.push({ x: WORLD.w / 2, y: 190, txt: 'PORTAL OPEN — FLY IN', t: 2.0, coin: true, vy: -8 });
   }
+  if (portal) {
+    portal.t += dt;
+    const rr = portal.r + player.r;
+    if (dist2(player, portal) <= rr * rr) { portal = null; openUpgrades(); }
+  }
+  warpFx = Math.max(0, warpFx - dt * 1.6);
 }
 
 function updateBullets(dt) {
@@ -608,6 +618,35 @@ function updateParticles(dt) {
   }
 }
 
+// ---------- Render helpers (stylized-3D look) ----------
+function hexRgb(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+function tint(hex, amt) {          // amt > 0 lightens toward white, < 0 darkens
+  const [r, g, b] = hexRgb(hex);
+  const f = c => Math.round(amt > 0 ? c + (255 - c) * amt : c * (1 + amt));
+  return `rgb(${f(r)},${f(g)},${f(b)})`;
+}
+// glossy sphere gradient: light from the upper-left, dark rim lower-right
+function bodyGrad(r, color) {
+  const g = ctx.createRadialGradient(-r * 0.35, -r * 0.4, r * 0.1, 0, 0, r * 1.25);
+  g.addColorStop(0, tint(color, 0.55));
+  g.addColorStop(0.45, color);
+  g.addColorStop(1, tint(color, -0.45));
+  return g;
+}
+function softShadow(x, y, r) {
+  ctx.save(); ctx.globalAlpha = 0.28; ctx.fillStyle = '#000';
+  ctx.beginPath(); ctx.ellipse(x, y + r * 0.95, r * 0.85, r * 0.32, 0, 0, TAU); ctx.fill();
+  ctx.restore();
+}
+function glossDot(r) {              // specular highlight
+  ctx.save(); ctx.globalAlpha = 0.65; ctx.fillStyle = '#ffffff';
+  ctx.beginPath(); ctx.ellipse(-r * 0.35, -r * 0.45, r * 0.22, r * 0.14, -0.6, 0, TAU); ctx.fill();
+  ctx.restore();
+}
+
 // ---------- Render ----------
 function drawBackground() {
   ctx.fillStyle = '#05060f'; ctx.fillRect(0, 0, WORLD.w, WORLD.h);
@@ -621,7 +660,13 @@ function drawBackground() {
     const tw = 0.5 + 0.5 * Math.sin(starPhase * 3 + s.tw);
     ctx.globalAlpha = 0.3 + tw * 0.6 * s.z;
     ctx.fillStyle = s.z > 0.75 ? '#dff0ff' : '#8fb4ff';
-    ctx.fillRect(s.x, y, s.z * 2, s.z * 2);
+    if (warpFx > 0.02) {
+      // star-streak warp: stars stretch into vertical light trails
+      const len = 4 + warpFx * 90 * s.z;
+      ctx.fillRect(s.x, y - len, s.z * 2, len);
+    } else {
+      ctx.fillRect(s.x, y, s.z * 2, s.z * 2);
+    }
   }
   ctx.globalAlpha = 1;
   ctx.strokeStyle = 'rgba(120,150,255,0.18)'; ctx.lineWidth = 3;
@@ -629,8 +674,12 @@ function drawBackground() {
 }
 
 function drawMonster(e) {
+  softShadow(e.x, e.y, e.r);
   ctx.save(); ctx.translate(e.x, e.y);
-  const col = e.flash > 0 ? '#ffffff' : e.color;
+  // squash & stretch breathing for a soft, animated feel
+  const sq = 1 + 0.06 * Math.sin(e.wobble);
+  ctx.scale(sq, 2 - sq);
+  const col = e.flash > 0 ? '#ffffff' : bodyGrad(e.r, e.color);
   const ea = Math.atan2(player.y - e.y, player.x - e.x);
   if (e.shape === 'spiky') {
     ctx.fillStyle = col; ctx.beginPath();
@@ -658,6 +707,7 @@ function drawMonster(e) {
     ctx.fillStyle = '#2a0008'; ctx.beginPath(); ctx.moveTo(0, 0);
     ctx.arc(0, 0, e.r * 0.9, ea - gape, ea + gape); ctx.closePath(); ctx.fill();
   }
+  if (e.flash <= 0) glossDot(e.r);   // specular highlight for the 3D look
   // crown for bosses
   if (e.boss) {
     ctx.strokeStyle = 'rgba(255,209,90,.9)'; ctx.lineWidth = 3;
@@ -692,20 +742,32 @@ function drawMonster(e) {
 }
 
 function drawShip() {
+  softShadow(player.x, player.y, player.r);
   ctx.save(); ctx.translate(player.x, player.y); ctx.rotate(player.facing + Math.PI / 2);
   if (player.inv > 0 && Math.floor(player.inv * 20) % 2 === 0) ctx.globalAlpha = 0.4;
-  // thruster
+  // thruster with hot core
   if (player.thrust > 0.05) {
-    ctx.globalAlpha *= 0.9; ctx.fillStyle = '#ffd15a';
     const fl = player.r * (1 + player.thrust * 1.4 + 0.3 * Math.sin(starPhase * 40));
+    ctx.globalAlpha *= 0.9;
+    ctx.fillStyle = '#ffd15a';
     ctx.beginPath(); ctx.moveTo(-5, player.r); ctx.lineTo(0, player.r + fl); ctx.lineTo(5, player.r); ctx.fill();
+    ctx.fillStyle = '#fff6d8';
+    ctx.beginPath(); ctx.moveTo(-2.5, player.r); ctx.lineTo(0, player.r + fl * 0.6); ctx.lineTo(2.5, player.r); ctx.fill();
     ctx.globalAlpha = player.inv > 0 && Math.floor(player.inv * 20) % 2 === 0 ? 0.4 : 1;
   }
-  // hull
-  ctx.fillStyle = player.color;
+  // hull with glossy top-lit gradient
+  const hull = ctx.createLinearGradient(-player.r, -player.r, player.r * 0.7, player.r);
+  hull.addColorStop(0, tint(player.color, 0.55));
+  hull.addColorStop(0.5, player.color);
+  hull.addColorStop(1, tint(player.color, -0.4));
+  ctx.fillStyle = hull;
   ctx.beginPath(); ctx.moveTo(0, -player.r - 3); ctx.lineTo(player.r, player.r); ctx.lineTo(0, player.r * 0.5); ctx.lineTo(-player.r, player.r); ctx.closePath(); ctx.fill();
-  // cockpit
-  ctx.fillStyle = 'rgba(255,255,255,.85)';
+  // hull edge light
+  ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 1.5; ctx.stroke();
+  // glass cockpit: glossy dome
+  const dome = ctx.createRadialGradient(-2, -player.r * 0.3, 1, 0, -player.r * 0.15, player.r * 0.34);
+  dome.addColorStop(0, '#ffffff'); dome.addColorStop(0.6, '#cfeaff'); dome.addColorStop(1, '#6db6e8');
+  ctx.fillStyle = dome;
   ctx.beginPath(); ctx.arc(0, -player.r * 0.15, player.r * 0.3, 0, TAU); ctx.fill();
   ctx.globalAlpha = 1; ctx.restore();
 }
@@ -715,6 +777,24 @@ function draw() {
   if (shake > 0) { shake = Math.max(0, shake - 0.016); ctx.translate(rand(-1, 1) * shake * 12, rand(-1, 1) * shake * 12); }
   drawBackground();
   if (state === State.START || state === State.HEROES) return;
+
+  // portal to the next room
+  if (portal) {
+    const pu = 1 + 0.08 * Math.sin(portal.t * 5);
+    ctx.save(); ctx.translate(portal.x, portal.y);
+    const glow = ctx.createRadialGradient(0, 0, 4, 0, 0, portal.r * 2.4);
+    glow.addColorStop(0, 'rgba(169,123,255,.8)'); glow.addColorStop(0.5, 'rgba(90,209,255,.28)'); glow.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(0, 0, portal.r * 2.4, 0, TAU); ctx.fill();
+    ctx.rotate(portal.t * 2.4);
+    ctx.strokeStyle = '#c9a5ff'; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.arc(0, 0, portal.r * pu, 0.4, Math.PI - 0.4); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, 0, portal.r * pu, Math.PI + 0.4, TAU - 0.4); ctx.stroke();
+    ctx.rotate(-portal.t * 4.1);
+    ctx.strokeStyle = '#8fe8ff'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(0, 0, portal.r * 0.62 * pu, 0.9, Math.PI - 0.2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, 0, portal.r * 0.62 * pu, Math.PI + 0.9, TAU - 0.2); ctx.stroke();
+    ctx.restore();
+  }
 
   for (const p of particles) { ctx.globalAlpha = clamp(p.life * 2, 0, 1); ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, TAU); ctx.fill(); }
   ctx.globalAlpha = 1;
@@ -730,8 +810,12 @@ function draw() {
       ctx.restore();
       ctx.globalAlpha = 0.2; ctx.fillStyle = col; ctx.beginPath(); ctx.arc(b.x, b.y, b.r + 2, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;
     } else {
-      ctx.fillStyle = col; ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, TAU); ctx.fill();
-      ctx.globalAlpha = 0.25; ctx.beginPath(); ctx.arc(b.x, b.y, b.r + 3, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;
+      // glossy energy orb: bright core, colored shell, soft glow
+      ctx.globalAlpha = 0.25; ctx.fillStyle = col;
+      ctx.beginPath(); ctx.arc(b.x, b.y, b.r + 3, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;
+      const og = ctx.createRadialGradient(b.x - b.r * 0.3, b.y - b.r * 0.3, 0.5, b.x, b.y, b.r);
+      og.addColorStop(0, '#ffffff'); og.addColorStop(1, col);
+      ctx.fillStyle = og; ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, TAU); ctx.fill();
     }
   }
   drawShip();
@@ -778,7 +862,7 @@ function openHeroes() {
 }
 
 function startGame(h) {
-  clearTimeout(upgradeTimer);
+  portal = null; warpFx = 0;
   heroDef = h; initPlayerFromHero(h);
   bullets = []; ebullets = []; enemies = []; particles = []; floaters = [];
   coins = 0; room = 1; level = 1; xp = 0; xpNext = 3;
@@ -817,11 +901,13 @@ function openUpgrades() {
 
 function nextRoom() {
   hideAllOverlays(); room++; state = State.PLAY;
-  player.x = WORLD.w / 2; player.y = WORLD.h - 140; buildRoom(room);
+  player.x = WORLD.w / 2; player.y = WORLD.h - 140;
+  warpFx = 1;                        // star-streak fly-in to the new room
+  buildRoom(room);
 }
 
 function gameOver() {
-  clearTimeout(upgradeTimer);
+  portal = null;
   state = State.OVER;
   el('overStats').innerHTML =
     `<b>${heroDef.name}</b> reached <b>Sector ${room}</b> · Rank ${level}<br>Salvaged <b>${coins}</b> crystals from the drift.`;
@@ -849,8 +935,9 @@ window.NOVA_DEBUG = {
     enemies: enemies.length, boss: enemies.some(e => e.boss),
     bullets: bullets.length, ebullets: ebullets.length,
     weapon: player.weapon ? player.weapon.name : null,
+    portal: !!portal, px: player.x, py: player.y,
   }),
-  warpTo: n => { if (state !== State.PLAY) return false; clearTimeout(upgradeTimer); enemies = []; ebullets = []; toSpawn = []; room = n; buildRoom(n); return true; },
+  warpTo: n => { if (state !== State.PLAY) return false; portal = null; enemies = []; ebullets = []; toSpawn = []; room = n; buildRoom(n); return true; },
   setWeapon: id => { if (WEAPONS[id]) { player.weapon = WEAPONS[id]; return true; } return false; },
   buff: (dmg, hp) => { player.dmg = dmg; player.maxHp = hp; player.hp = hp; },
   weapons: Object.keys(WEAPONS),
