@@ -45,6 +45,8 @@
   .card { width:180px; background:rgba(20,24,44,.9); border:1px solid #2a3560; border-radius:16px; padding:20px 16px;
     cursor:pointer; transition:transform .12s, border-color .12s, box-shadow .12s; }
   .card:hover { transform:translateY(-6px); border-color:var(--accent); box-shadow:0 10px 30px rgba(90,209,255,.28); }
+  .card.weapon-card { border-color:#ffd15a88; background:linear-gradient(180deg,rgba(60,48,20,.9),rgba(20,24,44,.9)); }
+  .card.weapon-card:hover { border-color:#ffd15a; box-shadow:0 10px 30px rgba(255,209,90,.3); }
   .card .ico { font-size:38px; margin-bottom:10px; }
   .card .name { font-weight:700; font-size:17px; margin-bottom:6px; }
   .card .desc { font-size:13px; opacity:.7; line-height:1.4; }
@@ -73,6 +75,7 @@
     <div class="right">
       <div>💎 <span id="coins">0</span></div>
       <div style="margin-top:6px" class="pill">Rank <span id="level">1</span></div>
+      <div style="margin-top:6px" class="pill" id="weapon">🔫 Pulse Blaster</div>
     </div>
   </div>
 

@@ -24,8 +24,19 @@ Open `index.html` in any modern browser. No build step, no dependencies.
 - Move-to-dodge / stop-to-shoot combat with auto-targeting
 - 5 space-monster archetypes with distinct AI
   (voidling, glowspit, ramhorn, starwisp, devourer)
-- 12 stackable weapon upgrades across common / rare / epic tiers
-  (Split Cannon, Rail Slug, Bouncer Rounds, Wing Guns, Siphon Beam, …)
+- 6 distinct weapon types, each with its own feel and projectile behavior:
+  - **Pulse Blaster** — fast, accurate straight bolts
+  - **Rail Lance** — slow, heavy shots that pierce several foes
+  - **Scatter Coil** — short-range shotgun spread of pellets
+  - **Spore Burst** — homing spores that seek enemies
+  - **Nova Orb** — a slow, heavy orb that hunts targets down
+  - **Saw Disc** — a blade that flies out and boomerangs back, hitting on both passes
+
+  Each guardian starts with a signature weapon, and new weapons drop as
+  choices between sectors (shown as gold cards).
+- 12 stackable weapon upgrades across common / rare / epic tiers that stack
+  on top of any weapon (Split Cannon, Rail Slug, Bouncer Rounds, Wing Guns,
+  Siphon Beam, …)
 - Sector-by-sector difficulty scaling, ranks, and a death/restart loop
 - Parallax starfield + nebula backdrop, dodgeable enemy fire, particles
 

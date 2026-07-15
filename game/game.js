@@ -89,17 +89,30 @@ const ART = 'https://d8j0ntlcm91z4.cloudfront.net/user_3F047Iq9Ue5VPXNvJsfVjZtSn
 const HEROES = [
   { id:'vex',  ico:'🛰️', name:'Vex Corran',  role:'Ace Pilot',  color:'#5ad1ff', perk:'Fast guns, quick fire rate',
     art: ART + 'hf_20260715_042729_5db1705c-999c-42f0-894e-4520138991f7.png',
-    base:{ fireRate:0.50, dmg:9,  maxHp:90,  speed:230 } },
-  { id:'kaela',ico:'🛡️', name:'Kaela Vorn',  role:'Warbreaker', color:'#ff5a7a', perk:'Heavy hull, hits like a truck',
+    base:{ fireRate:0.50, dmg:9,  maxHp:90,  speed:230, weapon:'pulse' } },
+  { id:'kaela',ico:'🛡️', name:'Kaela Vorn',  role:'Warbreaker', color:'#ff5a7a', perk:'Rail Lance — slow, armor-piercing cannon',
     art: ART + 'hf_20260715_042734_aacc6351-e693-4347-b296-3282283cb654.png',
-    base:{ fireRate:0.72, dmg:14, maxHp:140, speed:190 } },
-  { id:'thorn',ico:'🌿', name:'Thornroot',   role:'Wildkin',    color:'#4ad682', perk:'Siphons life from every hit',
+    base:{ fireRate:0.72, dmg:14, maxHp:140, speed:190, weapon:'rail' } },
+  { id:'thorn',ico:'🌿', name:'Thornroot',   role:'Wildkin',    color:'#4ad682', perk:'Spore Burst — homing spores + lifesteal',
     art: ART + 'hf_20260715_042739_6afc0d6a-44f4-4320-a7fe-147629acbe78.png',
-    base:{ fireRate:0.62, dmg:10, maxHp:110, speed:205, lifesteal:0.05 } },
-  { id:'rax',  ico:'🤖', name:'Rax-9',       role:'Gun Drone',  color:'#ffa24a', perk:'Twin cannons — fires 2 shots',
+    base:{ fireRate:0.62, dmg:10, maxHp:110, speed:205, lifesteal:0.05, weapon:'spore' } },
+  { id:'rax',  ico:'🤖', name:'Rax-9',       role:'Gun Drone',  color:'#ffa24a', perk:'Scatter Coil — twin spread cannons',
     art: ART + 'hf_20260715_042743_b95d7616-9a13-410d-bf76-4ec6b2eed2f9.png',
-    base:{ fireRate:0.66, dmg:9,  maxHp:100, speed:205, multishot:2 } },
+    base:{ fireRate:0.66, dmg:9,  maxHp:100, speed:205, weapon:'scatter' } },
 ];
+
+// ---------- Weapons (original) ----------
+// fireRate = multiplier on the hero's base interval (lower = faster).
+// dmgMult scales per-projectile damage; count is base projectiles per shot;
+// behaviour drives special motion. All stack with the upgrade pool.
+const WEAPONS = {
+  pulse:   { name:'Pulse Blaster', ico:'🔫', fireRate:1.00, dmgMult:1.0, projSpeed:480, count:1, spread:0.16, r:5, range:1.0,  color:'#bfefff', behavior:'straight',  desc:'Fast, accurate energy bolts' },
+  rail:    { name:'Rail Lance',    ico:'🔩', fireRate:1.55, dmgMult:2.3, projSpeed:640, count:1, spread:0.04, r:7, range:1.2,  color:'#8fdcff', behavior:'straight', pierce:3, desc:'Slow, heavy shots that punch through' },
+  scatter: { name:'Scatter Coil',  ico:'💠', fireRate:0.90, dmgMult:0.55,projSpeed:430, count:5, spread:0.42, r:4, range:0.55, color:'#ffd15a', behavior:'straight',  desc:'A short-range blast of pellets' },
+  spore:   { name:'Spore Burst',   ico:'🌱', fireRate:1.10, dmgMult:0.8, projSpeed:300, count:3, spread:0.30, r:6, range:1.4,  color:'#7bffb0', behavior:'homing',   desc:'Living spores that seek prey' },
+  nova:    { name:'Nova Orb',      ico:'🌀', fireRate:1.35, dmgMult:1.5, projSpeed:250, count:1, spread:0.0,  r:9, range:1.6,  color:'#c07bff', behavior:'homing', pierce:1, desc:'A slow orb that hunts down foes' },
+  disc:    { name:'Saw Disc',      ico:'🪀', fireRate:1.25, dmgMult:1.1, projSpeed:420, count:1, spread:0.10, r:8, range:1.0,  color:'#5ad1ff', behavior:'boomerang', pierce:99, desc:'A blade that flies out and returns' },
+};
 let heroDef = HEROES[0];
 
 const player = { x: WORLD.w/2, y: WORLD.h-140, r: 15 };
@@ -113,6 +126,7 @@ function initPlayerFromHero(h) {
     multishot: b.multishot || 1, spread: 0.16, pierce: 0, ricochet: 0,
     crit: 0.05, critMult: 2, lifesteal: b.lifesteal || 0,
     sideShot: false, backShot: false, fireCd: 0, inv: 0, facing: -Math.PI/2, thrust: 0,
+    weapon: WEAPONS[b.weapon] || WEAPONS.pulse,
   });
 }
 
@@ -144,7 +158,7 @@ const UPGRADES = [
   { id:'leech', ico:'🩸', name:'Siphon Beam',     rar:'epic',   desc:'Heal 6% of damage',   apply:p=>p.lifesteal+=0.06 },
   { id:'big',   ico:'💥', name:'Heavy Cannon',    rar:'epic',   desc:'+50% dmg, -10% rate', apply:p=>{p.dmg*=1.5;p.fireRate*=1.10;} },
 ];
-const RAR_COLOR = { common:'#9fb2cf', rare:'#5ad1ff', epic:'#c07bff' };
+const RAR_COLOR = { common:'#9fb2cf', rare:'#5ad1ff', epic:'#c07bff', weapon:'#ffd15a' };
 
 function pickUpgrades(n) {
   const pool = [...UPGRADES], out = [];
@@ -197,23 +211,28 @@ function spawnEnemy(kind) {
 
 // ---------- Combat ----------
 function fire() {
+  const w = player.weapon;
   const target = nearestEnemy();
   let baseAng = target ? Math.atan2(target.y - player.y, target.x - player.x) : player.facing;
   player.facing = baseAng;
+  const count = w.count + (player.multishot - 1);   // multishot upgrades add extra projectiles
   const shots = [];
-  const n = player.multishot;
-  for (let i = 0; i < n; i++) shots.push(baseAng + (i - (n - 1) / 2) * player.spread);
+  for (let i = 0; i < count; i++) shots.push(baseAng + (i - (count - 1) / 2) * w.spread);
   if (player.sideShot) { shots.push(baseAng + Math.PI / 2); shots.push(baseAng - Math.PI / 2); }
   if (player.backShot) shots.push(baseAng + Math.PI);
+  const dmg = player.dmg * w.dmgMult;
+  const speed = w.projSpeed;
+  const life = (player.range * w.range) / speed + 0.1;
   for (const ang of shots) {
     bullets.push({
       x: player.x + Math.cos(ang) * player.r, y: player.y + Math.sin(ang) * player.r,
-      vx: Math.cos(ang) * player.projSpeed, vy: Math.sin(ang) * player.projSpeed,
-      r: 5, life: player.range / player.projSpeed + 0.1,
-      pierce: player.pierce, ricochet: player.ricochet, hitSet: new Set(),
+      vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed, speed,
+      r: w.r, life, dmg, color: w.color,
+      pierce: player.pierce + (w.pierce || 0), ricochet: player.ricochet, hitSet: new Set(),
+      behavior: w.behavior, age: 0, turnAt: life * 0.42,
     });
   }
-  spawnParticles(player.x + Math.cos(baseAng) * player.r, player.y + Math.sin(baseAng) * player.r, player.color, 3);
+  spawnParticles(player.x + Math.cos(baseAng) * player.r, player.y + Math.sin(baseAng) * player.r, w.color, 3);
 }
 
 function nearestEnemy() {
@@ -290,22 +309,53 @@ function update(dt) {
 function updateBullets(dt) {
   for (let i = bullets.length - 1; i >= 0; i--) {
     const b = bullets[i];
+    b.age += dt;
+
+    // ---- special motion ----
+    if (b.behavior === 'homing') {
+      const t = nearestEnemy();
+      if (t) {
+        const desired = Math.atan2(t.y - b.y, t.x - b.x);
+        const cur = Math.atan2(b.vy, b.vx);
+        let diff = desired - cur;
+        while (diff > Math.PI) diff -= TAU; while (diff < -Math.PI) diff += TAU;
+        const turn = clamp(diff, -5 * dt, 5 * dt);   // steer rate (rad/s)
+        const a = cur + turn;
+        b.vx = Math.cos(a) * b.speed; b.vy = Math.sin(a) * b.speed;
+      }
+    } else if (b.behavior === 'boomerang') {
+      if (b.age >= b.turnAt) {                        // curve back toward the ship
+        const a = Math.atan2(player.y - b.y, player.x - b.x);
+        const cur = Math.atan2(b.vy, b.vx);
+        let diff = a - cur; while (diff > Math.PI) diff -= TAU; while (diff < -Math.PI) diff += TAU;
+        const na = cur + clamp(diff, -7 * dt, 7 * dt);
+        b.vx = Math.cos(na) * b.speed; b.vy = Math.sin(na) * b.speed;
+        b.life = Math.max(b.life, 0.15);              // stay alive until it returns
+        if (b.age > b.turnAt + 0.15 && dist2(b, player) < (player.r + b.r) * (player.r + b.r)) { bullets.splice(i, 1); continue; }
+      }
+    }
+
     b.x += b.vx * dt; b.y += b.vy * dt; b.life -= dt;
-    let bounced = false;
-    if (b.x < 0 || b.x > WORLD.w) { b.vx *= -1; b.x = clamp(b.x, 0, WORLD.w); bounced = true; }
-    if (b.y < 0 || b.y > WORLD.h) { b.vy *= -1; b.y = clamp(b.y, 0, WORLD.h); bounced = true; }
-    if (bounced) { if (b.ricochet > 0) b.ricochet--; else { bullets.splice(i, 1); continue; } }
+
+    // wall handling (discs and homing shots pass through; others ricochet or die)
+    if (b.behavior === 'straight') {
+      let bounced = false;
+      if (b.x < 0 || b.x > WORLD.w) { b.vx *= -1; b.x = clamp(b.x, 0, WORLD.w); bounced = true; }
+      if (b.y < 0 || b.y > WORLD.h) { b.vy *= -1; b.y = clamp(b.y, 0, WORLD.h); bounced = true; }
+      if (bounced) { if (b.ricochet > 0) b.ricochet--; else { bullets.splice(i, 1); continue; } }
+    }
+
     for (const e of enemies) {
       if (b.hitSet.has(e)) continue;
       const rr = b.r + e.r;
       if (dist2(b, e) <= rr * rr) {
         const isCrit = Math.random() < player.crit;
-        damageEnemy(e, player.dmg * (isCrit ? player.critMult : 1), isCrit);
+        damageEnemy(e, b.dmg * (isCrit ? player.critMult : 1), isCrit);
         b.hitSet.add(e);
         if (b.pierce > 0) { b.pierce--; }
         else if (b.ricochet > 0) {
           const nxt = enemies.find(o => o !== e && !b.hitSet.has(o));
-          if (nxt) { const a = Math.atan2(nxt.y - b.y, nxt.x - b.x), sp = Math.hypot(b.vx, b.vy); b.vx = Math.cos(a) * sp; b.vy = Math.sin(a) * sp; b.ricochet--; b.hitSet = new Set([e]); }
+          if (nxt) { const a = Math.atan2(nxt.y - b.y, nxt.x - b.x); b.vx = Math.cos(a) * b.speed; b.vy = Math.sin(a) * b.speed; b.ricochet--; b.hitSet = new Set([e]); }
           else { bullets.splice(i, 1); }
         } else { bullets.splice(i, 1); }
         break;
@@ -464,7 +514,20 @@ function draw() {
   ctx.globalAlpha = 1;
   for (const b of ebullets) { ctx.fillStyle = b.color; ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, TAU); ctx.fill(); ctx.globalAlpha = 0.3; ctx.beginPath(); ctx.arc(b.x, b.y, b.r + 3, 0, TAU); ctx.fill(); ctx.globalAlpha = 1; }
   for (const e of enemies) drawMonster(e);
-  for (const b of bullets) { ctx.fillStyle = '#bfefff'; ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, TAU); ctx.fill(); ctx.globalAlpha = 0.25; ctx.beginPath(); ctx.arc(b.x, b.y, b.r + 3, 0, TAU); ctx.fill(); ctx.globalAlpha = 1; }
+  for (const b of bullets) {
+    const col = b.color || '#bfefff';
+    if (b.behavior === 'boomerang') {                 // spinning blade
+      ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(b.age * 22);
+      ctx.strokeStyle = col; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(0, 0, b.r, 0.3, Math.PI - 0.3); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, 0, b.r, Math.PI + 0.3, TAU - 0.3); ctx.stroke();
+      ctx.restore();
+      ctx.globalAlpha = 0.2; ctx.fillStyle = col; ctx.beginPath(); ctx.arc(b.x, b.y, b.r + 2, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;
+    } else {
+      ctx.fillStyle = col; ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, TAU); ctx.fill();
+      ctx.globalAlpha = 0.25; ctx.beginPath(); ctx.arc(b.x, b.y, b.r + 3, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;
+    }
+  }
   drawShip();
   ctx.textAlign = 'center';
   for (const f of floaters) {
@@ -481,6 +544,7 @@ const el = id => document.getElementById(id);
 function updateHUD() {
   el('hpbar').style.width = clamp(player.hp / player.maxHp * 100, 0, 100) + '%';
   el('coins').textContent = coins; el('room').textContent = room; el('level').textContent = level;
+  const wp = el('weapon'); if (wp) wp.textContent = player.weapon.ico + ' ' + player.weapon.name;
 }
 
 // ---------- Screens ----------
@@ -516,15 +580,26 @@ function startGame(h) {
   state = State.PLAY; buildRoom(room);
 }
 
+function weaponOffer() {
+  // offer a random weapon the player isn't currently wielding
+  const ids = Object.keys(WEAPONS).filter(id => WEAPONS[id] !== player.weapon);
+  const id = ids[Math.floor(Math.random() * ids.length)];
+  const w = WEAPONS[id];
+  return { ico: w.ico, name: w.name, rar: 'weapon', desc: w.desc, isWeapon: true,
+    apply: p => { p.weapon = w; } };
+}
+
 function openUpgrades() {
   state = State.UPGRADE;
   const picks = pickUpgrades(3);
+  // from sector 2 on, a new weapon sometimes shows up in place of one card
+  if (room >= 2 && Math.random() < 0.4) picks[Math.floor(Math.random() * picks.length)] = weaponOffer();
   const wrap = el('cards'); wrap.innerHTML = '';
   for (const u of picks) {
     const c = document.createElement('div');
-    c.className = 'card';
+    c.className = 'card' + (u.isWeapon ? ' weapon-card' : '');
     c.innerHTML = `<div class="ico">${u.ico}</div><div class="name">${u.name}</div>
-      <div class="desc">${u.desc}</div><div class="rar" style="color:${RAR_COLOR[u.rar]}">${u.rar}</div>`;
+      <div class="desc">${u.desc}</div><div class="rar" style="color:${RAR_COLOR[u.rar]}">${u.isWeapon ? 'new weapon' : u.rar}</div>`;
     c.onclick = () => { u.apply(player); heal(player.maxHp * 0.15); nextRoom(); };
     wrap.appendChild(c);
   }
