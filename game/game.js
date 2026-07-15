@@ -133,8 +133,18 @@ function initPlayerFromHero(h) {
 let bullets = [], ebullets = [], enemies = [], particles = [], floaters = [];
 let coins = 0, room = 1, level = 1, xp = 0, xpNext = 3;
 let roomTarget = 0, roomActive = false, spawnTimer = 0, toSpawn = [];
-let portal = null;      // appears when a room is cleared; fly in to advance
-let warpFx = 0;         // star-streak transition when entering a new room
+let portal = null;      // open gate when the room is cleared; walk in to advance
+let warpFx = 0;         // transition flash when entering a new room
+
+// ---------- Room theming (station chambers, palette shifts as you go deeper) ----------
+const PAD = 24;                     // wall thickness — playfield is inset by this
+const ROOM_THEMES = [
+  { floor:'#161c30', tile:'#1d2542', wall:'#2c3660', glow:'#5ad1ff' },   // azure deck
+  { floor:'#1f1630', tile:'#291d42', wall:'#43306a', glow:'#a97bff' },   // violet vault
+  { floor:'#11261f', tile:'#173229', wall:'#245244', glow:'#4ad682' },   // verdant hold
+  { floor:'#271518', tile:'#341d21', wall:'#5a3038', glow:'#ff8a5a' },   // ember bay
+];
+const roomTheme = () => ROOM_THEMES[Math.floor((room - 1) / 3) % ROOM_THEMES.length];
 
 // ---------- Space-monster archetypes (original) ----------
 const ENEMY_TYPES = {
@@ -320,10 +330,11 @@ function update(dt) {
 
   const mv = moveVector();
   if (mv.moving) {
-    player.x = clamp(player.x + mv.x * player.speed * dt, player.r, WORLD.w - player.r);
-    player.y = clamp(player.y + mv.y * player.speed * dt, player.r, WORLD.h - player.r);
+    player.x = clamp(player.x + mv.x * player.speed * dt, PAD + player.r, WORLD.w - PAD - player.r);
+    player.y = clamp(player.y + mv.y * player.speed * dt, PAD + player.r, WORLD.h - PAD - player.r);
     player.facing = Math.atan2(mv.y, mv.x);
     player.thrust = Math.min(1, player.thrust + dt * 5);
+    player.walkT = (player.walkT || 0) + dt * 13;   // run cycle
   } else {
     player.thrust = Math.max(0, player.thrust - dt * 5);
   }
@@ -342,8 +353,8 @@ function update(dt) {
   // room cleared → open a portal; the guardian must fly into it to advance
   if (roomActive && toSpawn.length === 0 && enemies.length === 0) {
     roomActive = false;
-    portal = { x: WORLD.w / 2, y: 110, r: 30, t: 0 };
-    floaters.push({ x: WORLD.w / 2, y: 190, txt: 'PORTAL OPEN — FLY IN', t: 2.0, coin: true, vy: -8 });
+    portal = { x: WORLD.w / 2, y: PAD + 34, r: 34, t: 0 };
+    floaters.push({ x: WORLD.w / 2, y: 170, txt: 'GATE OPEN — WALK IN', t: 2.0, coin: true, vy: -8 });
   }
   if (portal) {
     portal.t += dt;
@@ -389,8 +400,8 @@ function updateBullets(dt) {
     // wall handling (discs and homing shots pass through; others ricochet or die)
     if (b.behavior === 'straight') {
       let bounced = false;
-      if (b.x < 0 || b.x > WORLD.w) { b.vx *= -1; b.x = clamp(b.x, 0, WORLD.w); bounced = true; }
-      if (b.y < 0 || b.y > WORLD.h) { b.vy *= -1; b.y = clamp(b.y, 0, WORLD.h); bounced = true; }
+      if (b.x < PAD || b.x > WORLD.w - PAD) { b.vx *= -1; b.x = clamp(b.x, PAD, WORLD.w - PAD); bounced = true; }
+      if (b.y < PAD || b.y > WORLD.h - PAD) { b.vy *= -1; b.y = clamp(b.y, PAD, WORLD.h - PAD); bounced = true; }
       if (bounced) { if (b.ricochet > 0) b.ricochet--; else { bullets.splice(i, 1); continue; } }
     }
 
@@ -463,7 +474,8 @@ function updateEnemies(dt) {
         e.attackCd = 2.0;
       }
     }
-    e.x = clamp(e.x, e.r, WORLD.w - e.r); e.y = clamp(e.y, e.r, WORLD.h - e.r);
+    e.x = clamp(e.x, PAD + e.r * 0.6, WORLD.w - PAD - e.r * 0.6);
+    e.y = clamp(e.y, PAD + e.r * 0.6, WORLD.h - PAD - e.r * 0.6);
     const rr = e.r + player.r;
     if (dist2(e, player) <= rr * rr) hurtPlayer(e.touch);
   }
@@ -530,7 +542,54 @@ function glossDot(r) {              // specular highlight
 }
 
 // ---------- Render ----------
+function drawRoom() {
+  const th = roomTheme();
+  // floor
+  ctx.fillStyle = th.floor; ctx.fillRect(0, 0, WORLD.w, WORLD.h);
+  // tile grid
+  ctx.strokeStyle = th.tile; ctx.lineWidth = 2;
+  for (let gx = PAD; gx <= WORLD.w - PAD; gx += 52) { ctx.beginPath(); ctx.moveTo(gx, PAD); ctx.lineTo(gx, WORLD.h - PAD); ctx.stroke(); }
+  for (let gy = PAD; gy <= WORLD.h - PAD; gy += 52) { ctx.beginPath(); ctx.moveTo(PAD, gy); ctx.lineTo(WORLD.w - PAD, gy); ctx.stroke(); }
+  // soft center light pool
+  const pool = ctx.createRadialGradient(WORLD.w / 2, WORLD.h / 2, 60, WORLD.w / 2, WORLD.h / 2, WORLD.h * 0.62);
+  pool.addColorStop(0, 'rgba(255,255,255,0.05)'); pool.addColorStop(1, 'rgba(0,0,0,0.32)');
+  ctx.fillStyle = pool; ctx.fillRect(0, 0, WORLD.w, WORLD.h);
+  // walls (top-lit bevel)
+  ctx.fillStyle = th.wall;
+  ctx.fillRect(0, 0, WORLD.w, PAD); ctx.fillRect(0, WORLD.h - PAD, WORLD.w, PAD);
+  ctx.fillRect(0, 0, PAD, WORLD.h); ctx.fillRect(WORLD.w - PAD, 0, PAD, WORLD.h);
+  ctx.fillStyle = tint(th.wall, 0.25);
+  ctx.fillRect(0, 0, WORLD.w, 4); ctx.fillRect(0, 0, 4, WORLD.h); ctx.fillRect(WORLD.w - 4, 0, 4, WORLD.h);
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.fillRect(0, PAD - 4, WORLD.w, 4); ctx.fillRect(PAD - 4, 0, 4, WORLD.h); ctx.fillRect(WORLD.w - PAD, 0, 4, WORLD.h);
+  // wall glow strips
+  ctx.fillStyle = th.glow; ctx.globalAlpha = 0.5 + 0.2 * Math.sin(starPhase * 2);
+  for (const gx of [WORLD.w * 0.2, WORLD.w * 0.8]) { ctx.fillRect(gx - 22, PAD - 9, 44, 4); ctx.fillRect(gx - 22, WORLD.h - PAD + 5, 44, 4); }
+  ctx.globalAlpha = 1;
+
+  // gate in the top wall — sealed while fighting, open when the room is clear
+  const gw = 84, gx = WORLD.w / 2 - gw / 2;
+  ctx.fillStyle = '#0b0e1a'; ctx.fillRect(gx, 0, gw, PAD);
+  ctx.fillStyle = tint(th.wall, 0.4);
+  ctx.fillRect(gx - 6, 0, 6, PAD + 10); ctx.fillRect(gx + gw, 0, 6, PAD + 10);
+  if (portal) {
+    // open gate: glowing doorway
+    const g = ctx.createLinearGradient(0, 0, 0, PAD + 46);
+    g.addColorStop(0, '#c9a5ff'); g.addColorStop(1, 'rgba(90,209,255,0)');
+    ctx.fillStyle = g; ctx.fillRect(gx + 4, 0, gw - 8, PAD + 46);
+  } else {
+    // sealed door with a warning seam
+    ctx.fillStyle = tint(th.wall, -0.2); ctx.fillRect(gx + 4, 2, gw - 8, PAD - 4);
+    ctx.fillStyle = th.glow; ctx.globalAlpha = 0.6;
+    ctx.fillRect(gx + gw / 2 - 1, 2, 2, PAD - 4); ctx.globalAlpha = 1;
+  }
+
+  // warp flash when arriving in a new room
+  if (warpFx > 0.02) { ctx.fillStyle = `rgba(220,240,255,${warpFx * 0.5})`; ctx.fillRect(0, 0, WORLD.w, WORLD.h); }
+}
+
 function drawBackground() {
+  if (state === State.PLAY || state === State.UPGRADE || state === State.OVER) { drawRoom(); return; }
   ctx.fillStyle = '#05060f'; ctx.fillRect(0, 0, WORLD.w, WORLD.h);
   for (const n of nebulae) {
     const g = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, n.r);
@@ -623,34 +682,63 @@ function drawMonster(e) {
   }
 }
 
-function drawShip() {
-  softShadow(player.x, player.y, player.r);
-  ctx.save(); ctx.translate(player.x, player.y); ctx.rotate(player.facing + Math.PI / 2);
+function drawShip() {   // draws the guardian on foot (name kept for call sites)
+  const r = player.r;
+  softShadow(player.x, player.y + 4, r);
+  ctx.save(); ctx.translate(player.x, player.y);
   if (player.inv > 0 && Math.floor(player.inv * 20) % 2 === 0) ctx.globalAlpha = 0.4;
-  // thruster with hot core
-  if (player.thrust > 0.05) {
-    const fl = player.r * (1 + player.thrust * 1.4 + 0.3 * Math.sin(starPhase * 40));
-    ctx.globalAlpha *= 0.9;
-    ctx.fillStyle = '#ffd15a';
-    ctx.beginPath(); ctx.moveTo(-5, player.r); ctx.lineTo(0, player.r + fl); ctx.lineTo(5, player.r); ctx.fill();
-    ctx.fillStyle = '#fff6d8';
-    ctx.beginPath(); ctx.moveTo(-2.5, player.r); ctx.lineTo(0, player.r + fl * 0.6); ctx.lineTo(2.5, player.r); ctx.fill();
-    ctx.globalAlpha = player.inv > 0 && Math.floor(player.inv * 20) % 2 === 0 ? 0.4 : 1;
-  }
-  // hull with glossy top-lit gradient
-  const hull = ctx.createLinearGradient(-player.r, -player.r, player.r * 0.7, player.r);
-  hull.addColorStop(0, tint(player.color, 0.55));
-  hull.addColorStop(0.5, player.color);
-  hull.addColorStop(1, tint(player.color, -0.4));
-  ctx.fillStyle = hull;
-  ctx.beginPath(); ctx.moveTo(0, -player.r - 3); ctx.lineTo(player.r, player.r); ctx.lineTo(0, player.r * 0.5); ctx.lineTo(-player.r, player.r); ctx.closePath(); ctx.fill();
-  // hull edge light
-  ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 1.5; ctx.stroke();
-  // glass cockpit: glossy dome
-  const dome = ctx.createRadialGradient(-2, -player.r * 0.3, 1, 0, -player.r * 0.15, player.r * 0.34);
-  dome.addColorStop(0, '#ffffff'); dome.addColorStop(0.6, '#cfeaff'); dome.addColorStop(1, '#6db6e8');
-  ctx.fillStyle = dome;
-  ctx.beginPath(); ctx.arc(0, -player.r * 0.15, player.r * 0.3, 0, TAU); ctx.fill();
+
+  const run = player.thrust;                        // 0 idle → 1 sprinting
+  const step = Math.sin(player.walkT || 0);
+  const bob = run * step * 2;                       // body bounce while running
+  const facingLeft = Math.cos(player.facing) < 0;
+
+  // legs — alternating stubby boots
+  ctx.fillStyle = tint(player.color, -0.5);
+  const ly = r * 0.62, spread = r * 0.38, kick = run * step * 5;
+  ctx.beginPath(); ctx.ellipse(-spread, ly + kick * 0.6, r * 0.26, r * 0.36, 0, 0, TAU); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(spread, ly - kick * 0.6, r * 0.26, r * 0.36, 0, 0, TAU); ctx.fill();
+
+  // torso — rounded suit in the hero's color, top-lit
+  ctx.save(); ctx.translate(0, bob);
+  const torso = ctx.createLinearGradient(-r, -r, r * 0.6, r);
+  torso.addColorStop(0, tint(player.color, 0.5));
+  torso.addColorStop(0.55, player.color);
+  torso.addColorStop(1, tint(player.color, -0.4));
+  ctx.fillStyle = torso;
+  ctx.beginPath(); ctx.ellipse(0, r * 0.12, r * 0.72, r * 0.62, 0, 0, TAU); ctx.fill();
+  // chest light
+  ctx.fillStyle = 'rgba(255,255,255,.85)';
+  ctx.beginPath(); ctx.arc(0, r * 0.08, r * 0.13, 0, TAU); ctx.fill();
+
+  // blaster arm — pivots toward the aim direction
+  ctx.save(); ctx.rotate(player.facing);
+  ctx.fillStyle = tint(player.color, -0.35);
+  ctx.beginPath(); ctx.ellipse(r * 0.55, 0, r * 0.42, r * 0.2, 0, 0, TAU); ctx.fill();   // arm
+  ctx.fillStyle = '#39415e';
+  ctx.fillRect(r * 0.72, -r * 0.16, r * 0.62, r * 0.32);                                  // blaster body
+  ctx.fillStyle = '#8fe8ff';
+  ctx.fillRect(r * 1.2, -r * 0.09, r * 0.2, r * 0.18);                                    // muzzle glow
+  ctx.restore();
+
+  // helmet — glossy sphere with a wide visor
+  const hy = -r * 0.62 + bob * 0.4;
+  const helm = ctx.createRadialGradient(-r * 0.25, hy - r * 0.3, 1, 0, hy, r * 0.62);
+  helm.addColorStop(0, tint(player.color, 0.65));
+  helm.addColorStop(0.6, player.color);
+  helm.addColorStop(1, tint(player.color, -0.42));
+  ctx.fillStyle = helm;
+  ctx.beginPath(); ctx.arc(0, hy, r * 0.56, 0, TAU); ctx.fill();
+  // visor faces the aim direction
+  const vx = clamp(Math.cos(player.facing), -1, 1) * r * 0.18;
+  const visor = ctx.createLinearGradient(0, hy - r * 0.2, 0, hy + r * 0.25);
+  visor.addColorStop(0, '#ffffff'); visor.addColorStop(1, '#7fc4ea');
+  ctx.fillStyle = visor;
+  ctx.beginPath(); ctx.ellipse(vx, hy + r * 0.03, r * 0.34, r * 0.24, 0, 0, TAU); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.8)';
+  ctx.beginPath(); ctx.ellipse(vx - r * 0.12, hy - r * 0.05, r * 0.09, r * 0.05, -0.5, 0, TAU); ctx.fill();
+  ctx.restore();
+
   ctx.globalAlpha = 1; ctx.restore();
 }
 
