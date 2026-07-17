@@ -22,9 +22,9 @@ MIN_LIQUIDITY = float(os.environ.get("PM_MIN_LIQUIDITY", "1000"))
 # durable record — every fill is also printed to stdout).
 LEDGER_PATH = os.environ.get("PM_LEDGER_PATH", "paper_ledger.json")
 
-# Phase 0/1 is paper-only. Live execution arrives with py-sdk integration and
-# is intentionally impossible to enable by accident: this flag only unlocks a
-# NotImplementedError path for now.
+# Live trading. Requires PM_PRIVATE_KEY (and usually PM_FUNDER) — see
+# executor.py. Default is paper mode; only flip this after the Phase 1 gate
+# in POLYMARKET_PLAN.md is met.
 LIVE = os.environ.get("PM_LIVE", "0") == "1"
 
 GAMMA_URL = "https://gamma-api.polymarket.com"

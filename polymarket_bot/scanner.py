@@ -43,6 +43,8 @@ def scan(markets):
         size = min(yes_size, no_size)
         yield {
             "market": market.get("conditionId") or market.get("id"),
+            "yes_id": yes_id,
+            "no_id": no_id,
             "question": market.get("question", "?"),
             "yes_price": yes_price,
             "no_price": no_price,
