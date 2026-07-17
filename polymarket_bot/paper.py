@@ -48,19 +48,20 @@ class PaperTrader:
             print(f"ledger write failed (non-fatal): {e}", flush=True)
 
     def take(self, arb):
-        """Simulate buying the full YES+NO set for an arb found by the scanner."""
-        key = (arb["market"], arb["yes_price"], arb["no_price"])
+        """Simulate buying a full arb set (2-leg YES/NO or n-leg event set)."""
+        cost_per_set = arb.get("cost") or (arb["yes_price"] + arb["no_price"])
+        payout = arb.get("payout", 1.0)
+        key = (arb.get("market") or arb.get("event"), cost_per_set)
         if key in self._seen:
             return None
         self._seen.add(key)
 
-        cost_per_set = arb["yes_price"] + arb["no_price"]
         affordable = self.bankroll / cost_per_set if cost_per_set > 0 else 0
         shares = min(arb["size"], affordable)
         if shares <= 0:
             return None
 
-        profit = (1.0 - cost_per_set) * shares
+        profit = (payout - cost_per_set) * shares
         # Capital returns at resolution; paper model credits it immediately
         # since the set payout is locked. Track realized edge separately.
         self.realized += profit
@@ -69,8 +70,7 @@ class PaperTrader:
         fill = {
             "ts": datetime.now(timezone.utc).isoformat(),
             "question": arb["question"][:80],
-            "yes": arb["yes_price"],
-            "no": arb["no_price"],
+            "cost": round(cost_per_set, 4),
             "shares": round(shares, 2),
             "profit": round(profit, 4),
         }

@@ -25,6 +25,16 @@ def log(msg):
 
 
 def main():
+    import os
+
+    venue = os.environ.get("PM_VENUE") or (
+        "us" if os.environ.get("POLYMARKET_KEY_ID") else "crypto"
+    )
+    if venue == "us":
+        from .us_main import main as us_main
+
+        return us_main()
+
     live = None
     if config.LIVE:
         from .executor import LiveExecutor  # needs py-clob-client-v2 + keys
