@@ -1,1 +1,1 @@
-worker: python btc_bot.py
+worker: python run_all.py

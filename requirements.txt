@@ -1,3 +1,5 @@
 requests
 pandas
 numpy
+py-clob-client-v2
+polymarket-us
