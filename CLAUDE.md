@@ -4,10 +4,14 @@ Two trading bots deploy from `main` to a single Railway service
 (`railway.toml` → `python run_all.py`):
 
 - `btc_bot.py` — Coinbase BTC bot (EMA/RSI/ADX). Runs only if CB_API_KEY is set.
-- `polymarket_bot/` — Polymarket set-arbitrage bot. Paper mode by default.
-  Venue auto-select: POLYMARKET_KEY_ID set → Polymarket US (regulated, the
-  owner has access); otherwise crypto CLOB. Strategy, research findings, and
-  the staged $25→$100/day plan are in POLYMARKET_PLAN.md.
+- `polymarket_bot/` — prediction-market set-arbitrage bot, three venues
+  behind one loop (PM_VENUE=us|kalshi|crypto): Polymarket US (regulated,
+  polymarket-us SDK, POLYMARKET_KEY_ID/POLYMARKET_SECRET_KEY), Kalshi
+  (regulated, signed REST, KALSHI_API_KEY_ID/KALSHI_PRIVATE_KEY_PEM, taker
+  fees priced into the scanner), and Polymarket crypto CLOB. Paper mode by
+  default. run_all.py starts the Polymarket AND Kalshi bots side by side
+  with separate paper ledgers; owner runs $25 per venue. Strategy, research
+  findings, and the staged $25→$100/day plan are in POLYMARKET_PLAN.md.
 
 ## State as of 2026-07-17
 
