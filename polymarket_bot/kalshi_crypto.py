@@ -281,7 +281,10 @@ def main():
 
     halted_logged = False
     market_closed_logged = False
+    cycle = 0
     while True:
+        cycle += 1
+        heartbeat = cycle % 10 == 1  # detailed line every ~5 min
         try:
             if not kalshi_api.trading_open():
                 if not market_closed_logged:
@@ -312,7 +315,23 @@ def main():
                     if spiking:
                         log(f"⚡ vol spike on {product} — skipping {series} this cycle")
                         continue
-                    for market in kalshi_api.get_markets(series):
+                    markets = kalshi_api.get_markets(series)
+                    if heartbeat:
+                        if markets:
+                            in_window = sum(
+                                1 for m in markets
+                                if (lambda t: t is not None and MIN_MINUTES <= t <= MAX_MINUTES)(
+                                    minutes_to_close(m)
+                                )
+                            )
+                            log(f"❤️ {series}: {len(markets)} open markets "
+                                f"({in_window} in trade window) | spot={spot:.0f} "
+                                f"sigma={sigma*100:.3f}%/min")
+                        else:
+                            log(f"⚠️ {series}: 0 open markets — series ticker may be "
+                                "wrong; check kalshi.com/markets/crypto for the real "
+                                "series name and set PM_CRYPTO_SERIES")
+                    for market in markets:
                         if book.has_open(market.get("ticker", "")):
                             continue
                         sig = evaluate(market, spot, sigma)
