@@ -18,6 +18,9 @@ class KalshiLiveExecutor:
                 "PM_LIVE=1 on venue 'kalshi' requires KALSHI_API_KEY_ID and KALSHI_PRIVATE_KEY_PEM"
             )
         self.max_per_trade = float(os.environ.get("PM_MAX_PER_TRADE", "25"))
+        from .canary import Canary
+
+        self.canary = Canary("live_canary_arb.json")
 
     @staticmethod
     def _filled_count(order, requested):
@@ -31,6 +34,7 @@ class KalshiLiveExecutor:
 
     def take(self, arb):
         contracts = int(min(arb["size"], (self.max_per_trade * 100) // max(arb["cost"] * 100, 1)))
+        contracts = self.canary.cap(contracts)  # 1-contract early live trades
         if contracts < 1:
             return {"status": "skipped", "reason": "size below 1 contract"}
 
@@ -54,6 +58,7 @@ class KalshiLiveExecutor:
                 return {"status": "missed", "failed_leg": leg["ticker"]}
             fills.append((leg, filled))
 
+        self.canary.record()
         profit = (arb["payout"] - arb["cost"]) * contracts
         return {"status": "filled", "contracts": contracts, "locked_profit": profit}
 
