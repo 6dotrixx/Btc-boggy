@@ -262,6 +262,12 @@ def main():
     book = PaperBook()
     canary = None
 
+    if live or os.environ.get("PM_SELFTEST") == "1":
+        from .selftest import run_preflight
+
+        run_preflight(series=SERIES[0] if SERIES else "KXBTC",
+                      authed=bool(os.environ.get("KALSHI_API_KEY_ID")), log=log)
+
     if live:
         from .canary import Canary
 

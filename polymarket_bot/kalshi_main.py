@@ -16,6 +16,13 @@ def log(msg):
 
 
 def main():
+    import os
+
+    if config.LIVE or os.environ.get("PM_SELFTEST") == "1":
+        from .selftest import run_preflight
+
+        run_preflight(authed=bool(os.environ.get("KALSHI_API_KEY_ID")), log=log)
+
     live = None
     if config.LIVE:
         from .kalshi_executor import KalshiLiveExecutor
