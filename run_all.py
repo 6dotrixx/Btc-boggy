@@ -1,28 +1,34 @@
-"""Railway entrypoint: supervises both bots in one service.
+"""Railway entrypoint: supervises all bots in one service + live dashboard.
 
-- BTC bot (Coinbase)      — started only if CB_API_KEY is set
-- Polymarket set-arb bot  — always started; paper mode unless PM_LIVE=1
+- BTC bot (Coinbase)        — started only if CB_API_KEY is set
+- Polymarket set-arb bot    — venue us/crypto by keys; paper unless PM_LIVE=1
+- Kalshi set-arb bot        — always started; paper unless PM_LIVE=1 + keys
+- Dashboard                 — HTML status page + JSON API on $PORT
 
-Children are restarted with backoff if they exit. Their stdout/stderr stream
-straight to Railway logs.
+Children are restarted with backoff if they exit. Their output streams to
+Railway logs (prefixed per bot) AND into the dashboard's ring buffers.
 """
 
 import os
 import subprocess
 import sys
+import threading
 import time
+from collections import deque
+
+import dashboard
 
 
 def build_jobs():
     """Each job: (name, argv, extra_env). Venues get separate paper ledgers."""
     jobs = []
     if os.environ.get("CB_API_KEY"):
-        jobs.append(("btc", [sys.executable, "btc_bot.py"], {}))
+        jobs.append(("btc", [sys.executable, "-u", "btc_bot.py"], {}))
     else:
         print("[supervisor] CB_API_KEY not set — BTC bot disabled", flush=True)
 
     pm_venue = "us" if os.environ.get("POLYMARKET_KEY_ID") else "crypto"
-    bot = [sys.executable, "-m", "polymarket_bot.main"]
+    bot = [sys.executable, "-u", "-m", "polymarket_bot.main"]
     jobs.append(
         ("polymarket", bot, {"PM_VENUE": pm_venue, "PM_LEDGER_PATH": "paper_ledger_pm.json"})
     )
@@ -32,16 +38,34 @@ def build_jobs():
     return jobs
 
 
+def spawn(name, cmd, extra_env):
+    proc = subprocess.Popen(
+        cmd,
+        env={**os.environ, **extra_env},
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+
+    def reader():
+        for line in proc.stdout:
+            print(f"[{name}] {line}", end="", flush=True)
+            dashboard.STATE[name]["lines"].append(line)
+
+    threading.Thread(target=reader, daemon=True).start()
+    return proc
+
+
 def main():
     jobs = build_jobs()
+    for name, _, _ in jobs:
+        dashboard.STATE[name] = {"alive": True, "lines": deque(maxlen=200)}
+    dashboard.start()
+
     procs = {}
     backoff = {name: 5 for name, _, _ in jobs}
-
-    def spawn(name, cmd, extra_env):
-        env = {**os.environ, **extra_env}
-        return subprocess.Popen(cmd, env=env)
-
     specs = {name: (cmd, extra) for name, cmd, extra in jobs}
+
     for name, cmd, extra in jobs:
         print(f"[supervisor] starting {name}: {' '.join(cmd)}", flush=True)
         procs[name] = spawn(name, cmd, extra)
@@ -51,7 +75,9 @@ def main():
         for name, proc in list(procs.items()):
             code = proc.poll()
             if code is None:
+                dashboard.STATE[name]["alive"] = True
                 continue
+            dashboard.STATE[name]["alive"] = False
             wait = backoff[name]
             print(
                 f"[supervisor] {name} exited with code {code} — restarting in {wait}s",
