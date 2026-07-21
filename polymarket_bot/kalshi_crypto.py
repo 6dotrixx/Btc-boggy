@@ -265,6 +265,16 @@ def main():
         balance = kalshi_api.get_balance()  # also validates credentials
         book.set_bankroll(balance)
         log(f"🔴 LIVE MODE — real orders; Kalshi balance ${balance:.2f}")
+    elif os.environ.get("KALSHI_API_KEY_ID"):
+        # Paper mode doesn't use credentials, but verify them now so a typo
+        # is caught on the dashboard long before go-live.
+        try:
+            balance = kalshi_api.get_balance()
+            log(f"🔑 API keys VERIFIED — Kalshi balance ${balance:.2f} "
+                "(still PAPER mode; not trading real funds)")
+        except Exception as e:
+            log(f"❌ API key check FAILED: {e} — fix KALSHI_API_KEY_ID / "
+                "KALSHI_PRIVATE_KEY_PEM in Railway Variables before going live")
 
     log(f"🔍 Kalshi crypto fair-value bot started ({'LIVE' if live else 'PAPER'} mode)")
     log(f"series={','.join(SERIES)} | edge>={EDGE_CENTS}c after fees | "
