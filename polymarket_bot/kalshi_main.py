@@ -30,8 +30,16 @@ def main():
         f"(taker fees priced in per leg) | interval={config.SCAN_INTERVAL}s"
     )
 
+    market_closed_logged = False
     while True:
         try:
+            if not kalshi_api.trading_open():
+                if not market_closed_logged:
+                    log("⏸ exchange closed / maintenance — pausing until trading resumes")
+                    market_closed_logged = True
+                time.sleep(config.SCAN_INTERVAL)
+                continue
+            market_closed_logged = False
             events = kalshi_api.get_open_events()
             found = 0
             for arb in kalshi_scanner.scan(events):

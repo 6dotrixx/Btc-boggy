@@ -16,12 +16,53 @@ import time
 
 import requests
 
-BASE = "https://api.elections.kalshi.com"
 API = "/trade-api/v2"
 TIMEOUT = 15
 
+# Kalshi has used more than one API host over time. Honor an explicit
+# override, otherwise auto-detect the first host whose /exchange/status
+# answers, and remember it for the rest of the process.
+_HOSTS = [
+    "https://api.elections.kalshi.com",
+    "https://external-api.kalshi.com",
+]
+
 session = requests.Session()
 session.headers["User-Agent"] = "btc-boggy-kalshi-bot/0.1"
+
+_base = os.environ.get("KALSHI_BASE_URL") or None
+
+
+def base_url():
+    global _base
+    if _base:
+        return _base
+    last_error = None
+    for host in _HOSTS:
+        try:
+            resp = session.get(f"{host}{API}/exchange/status", timeout=10)
+            if resp.status_code == 200:
+                _base = host
+                print(f"[kalshi_api] using API host {host}", flush=True)
+                return _base
+        except requests.RequestException as e:
+            last_error = e
+    raise ConnectionError(f"no Kalshi API host reachable: {last_error}")
+
+
+def exchange_status():
+    """{'exchange_active': bool, 'trading_active': bool, ...}"""
+    resp = session.get(f"{base_url()}{API}/exchange/status", timeout=TIMEOUT)
+    resp.raise_for_status()
+    return resp.json()
+
+
+def trading_open():
+    try:
+        s = exchange_status()
+        return bool(s.get("exchange_active")) and bool(s.get("trading_active"))
+    except requests.RequestException:
+        return False  # can't confirm the exchange is up -> don't trade
 
 _signer = None
 
@@ -74,7 +115,7 @@ def get_open_events(limit=200):
         }
         if cursor:
             params["cursor"] = cursor
-        resp = session.get(f"{BASE}{API}/events", params=params, timeout=TIMEOUT)
+        resp = session.get(f"{base_url()}{API}/events", params=params, timeout=TIMEOUT)
         resp.raise_for_status()
         data = resp.json()
         events.extend(data.get("events") or [])
@@ -87,7 +128,7 @@ def get_open_events(limit=200):
 def get_markets(series_ticker, limit=100):
     """Open markets for one series (e.g. Kalshi's hourly BTC price series)."""
     resp = session.get(
-        f"{BASE}{API}/markets",
+        f"{base_url()}{API}/markets",
         params={"series_ticker": series_ticker, "status": "open", "limit": limit},
         timeout=TIMEOUT,
     )
@@ -101,7 +142,7 @@ def get_orderbook(ticker):
     Levels are resting BIDS on each side, best bid = highest price. Buying
     YES crosses the NO bids (yes_ask = 100 - best_no_bid) and vice versa.
     """
-    resp = session.get(f"{BASE}{API}/markets/{ticker}/orderbook", timeout=TIMEOUT)
+    resp = session.get(f"{base_url()}{API}/markets/{ticker}/orderbook", timeout=TIMEOUT)
     resp.raise_for_status()
     return resp.json().get("orderbook") or {}
 
@@ -125,7 +166,7 @@ def get_balance():
     """Available balance in dollars (authenticated)."""
     path = f"{API}/portfolio/balance"
     resp = session.get(
-        f"{BASE}{path}", headers=_auth_headers("GET", path), timeout=TIMEOUT
+        f"{base_url()}{path}", headers=_auth_headers("GET", path), timeout=TIMEOUT
     )
     resp.raise_for_status()
     return (resp.json().get("balance") or 0) / 100.0
@@ -148,7 +189,7 @@ def create_order(ticker, side, action, count, price_cents, ioc=True):
     if ioc:
         body["expiration_ts"] = 1
     resp = session.post(
-        f"{BASE}{path}",
+        f"{base_url()}{path}",
         headers=_auth_headers("POST", path),
         data=json.dumps(body),
         timeout=TIMEOUT,
