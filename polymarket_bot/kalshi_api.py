@@ -121,6 +121,16 @@ def taker_fee_cents(price_cents, count=1):
     return math.ceil(7 * count * p * (1 - p))
 
 
+def get_balance():
+    """Available balance in dollars (authenticated)."""
+    path = f"{API}/portfolio/balance"
+    resp = session.get(
+        f"{BASE}{path}", headers=_auth_headers("GET", path), timeout=TIMEOUT
+    )
+    resp.raise_for_status()
+    return (resp.json().get("balance") or 0) / 100.0
+
+
 def create_order(ticker, side, action, count, price_cents, ioc=True):
     """Place a limit order. ioc=True sets expiration in the past, which the
     exchange treats as immediate-or-cancel: fill what's crossing, cancel rest.

@@ -7,16 +7,18 @@ Coinbase data with zero drift:
 
 where sigma_1m is realized per-minute volatility from recent 1-minute candles.
 We buy YES when fair - ask - fee > threshold, NO when (1-fair) - ask - fee >
-threshold. Unlike the set-arb strategies this is DIRECTIONAL (win rate, not
-locked profit), so:
+threshold. This strategy is DIRECTIONAL (win rate, not locked profit), so the
+risk rails are strict:
 
-- paper mode by default, with positions settled against spot at close
-- live requires BOTH PM_LIVE=1 and PM_CRYPTO_LIVE=1
-- at most one open position per market, sized PM_CRYPTO_RISK_FRAC of bankroll
-
-The counterparty flow here is largely rule-based automation (timed entries,
-fixed TP/SL) with no pricing model — the whole point is to be the side that
-has one.
+- VOL GUARD: if short-window vol spikes vs the long window (news regime),
+  the series is skipped entirely for that cycle, and pricing always uses the
+  larger of the two vol estimates.
+- DAILY KILL-SWITCH: if the day's realized P&L hits -PM_DAILY_LOSS_FRAC of
+  the day's starting bankroll, no new positions until the next UTC day.
+- One position per market, PM_CRYPTO_RISK_FRAC of bankroll per trade.
+- Live requires BOTH PM_LIVE=1 and PM_CRYPTO_LIVE=1. In live mode the
+  bankroll syncs from the real Kalshi balance and positions are recorded at
+  the actually-filled contract count.
 """
 
 import json
@@ -33,21 +35,19 @@ from . import config, kalshi_api
 COINBASE = "https://api.exchange.coinbase.com"
 SERIES = [
     s.strip()
-    for s in os.environ.get(
-        "PM_CRYPTO_SERIES", "KXBTC,KXBTCD,KXETH,KXETHD"
-    ).split(",")
+    for s in os.environ.get("PM_CRYPTO_SERIES", "KXBTC,KXBTCD,KXETH,KXETHD").split(",")
     if s.strip()
 ]
-# Trade only inside this window before close (minutes).
 MIN_MINUTES = float(os.environ.get("PM_CRYPTO_MIN_MINUTES", "3"))
 MAX_MINUTES = float(os.environ.get("PM_CRYPTO_MAX_MINUTES", "240"))
-# Required model edge in cents, after taker fee.
 EDGE_CENTS = float(os.environ.get("PM_CRYPTO_EDGE_CENTS", "4"))
 RISK_FRAC = float(os.environ.get("PM_CRYPTO_RISK_FRAC", "0.05"))
+DAILY_LOSS_FRAC = float(os.environ.get("PM_DAILY_LOSS_FRAC", "0.05"))
+VOL_GUARD_RATIO = float(os.environ.get("PM_CRYPTO_VOL_GUARD", "1.8"))
 BOOK_PATH = os.environ.get("PM_CRYPTO_BOOK_PATH", "paper_book_crypto.json")
 
 session = requests.Session()
-session.headers["User-Agent"] = "btc-boggy-kalshi-crypto/0.1"
+session.headers["User-Agent"] = "btc-boggy-kalshi-crypto/0.2"
 
 
 def product_for(series_ticker):
@@ -69,13 +69,25 @@ def candles(product, minutes=90):
     return [float(r[4]) for r in rows]
 
 
-def realized_vol_1m(closes):
+def realized_vol_1m(closes, min_n=20):
     rets = [math.log(b / a) for a, b in zip(closes, closes[1:]) if a > 0]
-    if len(rets) < 20:
+    if len(rets) < min_n:
         return None
     mean = sum(rets) / len(rets)
     var = sum((r - mean) ** 2 for r in rets) / (len(rets) - 1)
     return math.sqrt(var)
+
+
+def vol_regime(closes):
+    """(sigma_to_use, spiking) — conservative vol + news-spike detection."""
+    long = realized_vol_1m(closes)
+    short = realized_vol_1m(closes[-20:], min_n=10)
+    if long is None:
+        return None, False
+    if short is None:
+        return long, False
+    spiking = long > 0 and (short / long) > VOL_GUARD_RATIO
+    return max(long, short), spiking
 
 
 def fair_yes_prob(spot, strike, sigma_1m, minutes_left):
@@ -145,18 +157,27 @@ def evaluate(market, spot, sigma_1m, now=None):
     return None
 
 
+def _today():
+    return datetime.now(timezone.utc).date().isoformat()
+
+
 class PaperBook:
-    """Directional paper positions, settled against spot after close."""
+    """Directional positions (paper or live-mirrored), settled after close,
+    with a daily loss kill-switch."""
 
     def __init__(self):
-        self.state = {"bankroll": config.BANKROLL, "wins": 0, "losses": 0,
-                      "realized": 0.0, "open": []}
+        self.state = {
+            "bankroll": config.BANKROLL, "wins": 0, "losses": 0,
+            "realized": 0.0, "open": [],
+            "day": _today(), "day_start_bankroll": config.BANKROLL, "day_pnl": 0.0,
+        }
         if os.path.exists(BOOK_PATH):
             try:
                 with open(BOOK_PATH) as f:
                     self.state.update(json.load(f))
             except (OSError, ValueError):
                 pass
+        self._roll_day()
 
     def _save(self):
         try:
@@ -165,16 +186,35 @@ class PaperBook:
         except OSError:
             pass
 
+    def _roll_day(self):
+        if self.state.get("day") != _today():
+            self.state["day"] = _today()
+            self.state["day_start_bankroll"] = self.state["bankroll"]
+            self.state["day_pnl"] = 0.0
+            self._save()
+
+    def set_bankroll(self, dollars):
+        self.state["bankroll"] = dollars
+        self._save()
+
+    def halted(self):
+        """True when the daily loss limit has tripped (resets next UTC day)."""
+        self._roll_day()
+        limit = DAILY_LOSS_FRAC * max(self.state["day_start_bankroll"], 0.01)
+        return self.state["day_pnl"] <= -limit
+
     def has_open(self, ticker):
         return any(p["ticker"] == ticker for p in self.state["open"])
 
-    def open_position(self, sig):
+    def size_for(self, sig):
         budget = self.state["bankroll"] * RISK_FRAC
-        contracts = int(budget * 100 // sig["ask"])
+        return int(budget * 100 // sig["ask"])
+
+    def record(self, sig, contracts, live=False):
         if contracts < 1:
             return None
         cost = contracts * sig["ask"] / 100.0
-        pos = {**sig, "contracts": contracts, "cost": round(cost, 4),
+        pos = {**sig, "contracts": contracts, "cost": round(cost, 4), "live": live,
                "opened": datetime.now(timezone.utc).isoformat()}
         self.state["open"].append(pos)
         self._save()
@@ -183,8 +223,7 @@ class PaperBook:
     def settle(self, spot_lookup):
         """Settle positions whose market has closed. spot_lookup(ticker)->spot."""
         now = datetime.now(timezone.utc)
-        results = []
-        still_open = []
+        results, still_open = [], []
         for p in self.state["open"]:
             try:
                 close = datetime.fromisoformat(p["close_time"].replace("Z", "+00:00"))
@@ -204,9 +243,11 @@ class PaperBook:
             pnl = (p["contracts"] * 1.0 - p["cost"] - fee) if won else (-p["cost"] - fee)
             self.state["realized"] += pnl
             self.state["bankroll"] += pnl
+            self.state["day_pnl"] += pnl
             self.state["wins" if won else "losses"] += 1
             results.append({**p, "won": won, "pnl": round(pnl, 4), "settle_spot": spot})
         self.state["open"] = still_open
+        self._roll_day()
         self._save()
         return results
 
@@ -217,19 +258,18 @@ def log(msg):
 
 
 def main():
-    live = None
-    if config.LIVE and os.environ.get("PM_CRYPTO_LIVE") == "1":
-        from .kalshi_executor import KalshiLiveExecutor  # reuses key checks
-
-        KalshiLiveExecutor()  # validates credentials early
-        live = True
-        log("🔴 LIVE MODE — directional trades with real funds")
-
+    live = config.LIVE and os.environ.get("PM_CRYPTO_LIVE") == "1"
     book = PaperBook()
-    log("🔍 Kalshi crypto fair-value bot started "
-        f"({'LIVE' if live else 'PAPER'} mode)")
+
+    if live:
+        balance = kalshi_api.get_balance()  # also validates credentials
+        book.set_bankroll(balance)
+        log(f"🔴 LIVE MODE — real orders; Kalshi balance ${balance:.2f}")
+
+    log(f"🔍 Kalshi crypto fair-value bot started ({'LIVE' if live else 'PAPER'} mode)")
     log(f"series={','.join(SERIES)} | edge>={EDGE_CENTS}c after fees | "
-        f"window={MIN_MINUTES}-{MAX_MINUTES}m | risk/trade={RISK_FRAC:.0%}")
+        f"window={MIN_MINUTES}-{MAX_MINUTES}m | risk/trade={RISK_FRAC:.0%} | "
+        f"daily stop={DAILY_LOSS_FRAC:.0%} | vol guard x{VOL_GUARD_RATIO}")
 
     spots = {}
 
@@ -239,46 +279,72 @@ def main():
                 return spot
         return None
 
+    halted_logged = False
     while True:
         try:
-            for series in SERIES:
-                product = product_for(series)
-                if not product:
-                    continue
-                closes = candles(product)
-                if not closes:
-                    continue
-                spot, sigma = closes[-1], realized_vol_1m(closes)
-                spots[series] = spot
-                if not sigma:
-                    continue
-                for market in kalshi_api.get_markets(series):
-                    if book.has_open(market.get("ticker", "")):
+            if book.halted():
+                if not halted_logged:
+                    log(f"🛑 daily loss limit hit (day P&L ${book.state['day_pnl']:+.2f}) "
+                        "— no new positions until next UTC day")
+                    halted_logged = True
+            else:
+                halted_logged = False
+                for series in SERIES:
+                    product = product_for(series)
+                    if not product:
                         continue
-                    sig = evaluate(market, spot, sigma)
-                    if not sig:
+                    closes = candles(product)
+                    if not closes:
                         continue
-                    log(f"💡 {sig['side'].upper()} {sig['ticker']} ask={sig['ask']}c "
-                        f"fair={sig['fair']}c edge={sig['edge']}c "
-                        f"(spot={sig['spot']:.0f} K={sig['strike']:.0f} "
-                        f"{sig['minutes']}m left)")
-                    if live:
-                        kalshi_api.create_order(
-                            sig["ticker"], sig["side"], "buy",
-                            max(1, int(book.state['bankroll'] * RISK_FRAC * 100 // sig['ask'])),
-                            sig["ask"], ioc=True,
-                        )
-                        log("   ✅ LIVE order sent (IOC)")
-                    pos = book.open_position(sig)
-                    if pos:
-                        log(f"   📝 paper position: {pos['contracts']}x @ {pos['ask']}c "
-                            f"(${pos['cost']:.2f})")
+                    spot = closes[-1]
+                    spots[series] = spot
+                    sigma, spiking = vol_regime(closes)
+                    if sigma is None:
+                        continue
+                    if spiking:
+                        log(f"⚡ vol spike on {product} — skipping {series} this cycle")
+                        continue
+                    for market in kalshi_api.get_markets(series):
+                        if book.has_open(market.get("ticker", "")):
+                            continue
+                        sig = evaluate(market, spot, sigma)
+                        if not sig:
+                            continue
+                        log(f"💡 {sig['side'].upper()} {sig['ticker']} ask={sig['ask']}c "
+                            f"fair={sig['fair']}c edge={sig['edge']}c "
+                            f"(spot={sig['spot']:.0f} K={sig['strike']:.0f} "
+                            f"{sig['minutes']}m left)")
+                        contracts = book.size_for(sig)
+                        if contracts < 1:
+                            continue
+                        if live:
+                            order = kalshi_api.create_order(
+                                sig["ticker"], sig["side"], "buy",
+                                contracts, sig["ask"], ioc=True,
+                            )
+                            remaining = order.get("remaining_count")
+                            filled = (
+                                contracts - int(remaining)
+                                if remaining is not None
+                                else (contracts if order.get("status") == "executed" else 0)
+                            )
+                            if filled < 1:
+                                log("   ⚠️ IOC order did not fill")
+                                continue
+                            pos = book.record(sig, filled, live=True)
+                            log(f"   ✅ LIVE fill: {filled}x @ {sig['ask']}c "
+                                f"(${pos['cost']:.2f})")
+                        else:
+                            pos = book.record(sig, contracts)
+                            log(f"   📝 paper position: {contracts}x @ {sig['ask']}c "
+                                f"(${pos['cost']:.2f})")
 
             for r in book.settle(spot_lookup):
                 emoji = "✅" if r["won"] else "❌"
                 log(f"{emoji} settled {r['ticker']} {r['side'].upper()}: "
                     f"{'WON' if r['won'] else 'LOST'} {r['pnl']:+.4f} "
                     f"(bankroll=${book.state['bankroll']:.2f} "
+                    f"day={book.state['day_pnl']:+.2f} "
                     f"W:{book.state['wins']} L:{book.state['losses']})")
         except Exception as e:
             log(f"⚠️ scan error: {e} — retrying next cycle")

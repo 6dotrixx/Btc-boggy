@@ -27,11 +27,14 @@ def build_jobs():
     else:
         print("[supervisor] CB_API_KEY not set — BTC bot disabled", flush=True)
 
-    pm_venue = "us" if os.environ.get("POLYMARKET_KEY_ID") else "crypto"
     bot = [sys.executable, "-u", "-m", "polymarket_bot.main"]
-    jobs.append(
-        ("polymarket", bot, {"PM_VENUE": pm_venue, "PM_LEDGER_PATH": "paper_ledger_pm.json"})
-    )
+    if os.environ.get("POLYMARKET_KEY_ID"):
+        jobs.append(
+            ("polymarket", bot, {"PM_VENUE": "us", "PM_LEDGER_PATH": "paper_ledger_pm.json"})
+        )
+    else:
+        print("[supervisor] POLYMARKET_KEY_ID not set — Polymarket bot disabled "
+              "(Kalshi focus)", flush=True)
     jobs.append(
         ("kalshi", bot, {"PM_VENUE": "kalshi", "PM_LEDGER_PATH": "paper_ledger_kalshi.json"})
     )
