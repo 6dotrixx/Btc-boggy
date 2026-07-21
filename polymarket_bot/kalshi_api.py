@@ -84,6 +84,17 @@ def get_open_events(limit=200):
     return events
 
 
+def get_markets(series_ticker, limit=100):
+    """Open markets for one series (e.g. Kalshi's hourly BTC price series)."""
+    resp = session.get(
+        f"{BASE}{API}/markets",
+        params={"series_ticker": series_ticker, "status": "open", "limit": limit},
+        timeout=TIMEOUT,
+    )
+    resp.raise_for_status()
+    return resp.json().get("markets") or []
+
+
 def get_orderbook(ticker):
     """Order book for one market: {'yes': [[price,count],...], 'no': [...]}.
 

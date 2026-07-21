@@ -19,6 +19,7 @@ STATE = {}
 LEDGERS = {
     "polymarket": "paper_ledger_pm.json",
     "kalshi": "paper_ledger_kalshi.json",
+    "kalshi-crypto": "paper_book_crypto.json",
 }
 
 PAGE = """<!doctype html><html><head><meta charset="utf-8">
