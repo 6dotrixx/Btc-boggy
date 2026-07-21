@@ -14,25 +14,38 @@ import time
 
 
 def build_jobs():
+    """Each job: (name, argv, extra_env). Venues get separate paper ledgers."""
     jobs = []
     if os.environ.get("CB_API_KEY"):
-        jobs.append(("btc", [sys.executable, "btc_bot.py"]))
+        jobs.append(("btc", [sys.executable, "btc_bot.py"], {}))
     else:
         print("[supervisor] CB_API_KEY not set — BTC bot disabled", flush=True)
-    jobs.append(("polymarket", [sys.executable, "-m", "polymarket_bot.main"]))
+
+    pm_venue = "us" if os.environ.get("POLYMARKET_KEY_ID") else "crypto"
+    bot = [sys.executable, "-m", "polymarket_bot.main"]
+    jobs.append(
+        ("polymarket", bot, {"PM_VENUE": pm_venue, "PM_LEDGER_PATH": "paper_ledger_pm.json"})
+    )
+    jobs.append(
+        ("kalshi", bot, {"PM_VENUE": "kalshi", "PM_LEDGER_PATH": "paper_ledger_kalshi.json"})
+    )
     return jobs
 
 
 def main():
     jobs = build_jobs()
     procs = {}
-    backoff = {name: 5 for name, _ in jobs}
+    backoff = {name: 5 for name, _, _ in jobs}
 
-    for name, cmd in jobs:
+    def spawn(name, cmd, extra_env):
+        env = {**os.environ, **extra_env}
+        return subprocess.Popen(cmd, env=env)
+
+    specs = {name: (cmd, extra) for name, cmd, extra in jobs}
+    for name, cmd, extra in jobs:
         print(f"[supervisor] starting {name}: {' '.join(cmd)}", flush=True)
-        procs[name] = subprocess.Popen(cmd)
+        procs[name] = spawn(name, cmd, extra)
 
-    cmds = dict(jobs)
     while True:
         time.sleep(5)
         for name, proc in list(procs.items()):
@@ -46,7 +59,7 @@ def main():
             )
             time.sleep(wait)
             backoff[name] = min(wait * 2, 300)
-            procs[name] = subprocess.Popen(cmds[name])
+            procs[name] = spawn(name, *specs[name])
 
 
 if __name__ == "__main__":

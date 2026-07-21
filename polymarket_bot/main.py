@@ -27,13 +27,22 @@ def log(msg):
 def main():
     import os
 
-    venue = os.environ.get("PM_VENUE") or (
-        "us" if os.environ.get("POLYMARKET_KEY_ID") else "crypto"
-    )
+    venue = os.environ.get("PM_VENUE")
+    if not venue:
+        if os.environ.get("POLYMARKET_KEY_ID"):
+            venue = "us"
+        elif os.environ.get("KALSHI_API_KEY_ID"):
+            venue = "kalshi"
+        else:
+            venue = "crypto"
     if venue == "us":
         from .us_main import main as us_main
 
         return us_main()
+    if venue == "kalshi":
+        from .kalshi_main import main as kalshi_main
+
+        return kalshi_main()
 
     live = None
     if config.LIVE:
