@@ -280,8 +280,16 @@ def main():
         return None
 
     halted_logged = False
+    market_closed_logged = False
     while True:
         try:
+            if not kalshi_api.trading_open():
+                if not market_closed_logged:
+                    log("⏸ exchange closed / maintenance — pausing until trading resumes")
+                    market_closed_logged = True
+                time.sleep(config.SCAN_INTERVAL)
+                continue
+            market_closed_logged = False
             if book.halted():
                 if not halted_logged:
                     log(f"🛑 daily loss limit hit (day P&L ${book.state['day_pnl']:+.2f}) "
