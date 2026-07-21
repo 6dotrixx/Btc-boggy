@@ -260,11 +260,15 @@ def log(msg):
 def main():
     live = config.LIVE and os.environ.get("PM_CRYPTO_LIVE") == "1"
     book = PaperBook()
+    canary = None
 
     if live:
+        from .canary import Canary
+
+        canary = Canary("live_canary_crypto.json")
         balance = kalshi_api.get_balance()  # also validates credentials
         book.set_bankroll(balance)
-        log(f"🔴 LIVE MODE — real orders; Kalshi balance ${balance:.2f}")
+        log(f"🔴 LIVE MODE — real orders; Kalshi balance ${balance:.2f}{canary.note()}")
     elif os.environ.get("KALSHI_API_KEY_ID"):
         # Paper mode doesn't use credentials, but verify them now so a typo
         # is caught on the dashboard long before go-live.
@@ -355,6 +359,7 @@ def main():
                         if contracts < 1:
                             continue
                         if live:
+                            contracts = canary.cap(contracts)  # 1-contract early trades
                             order = kalshi_api.create_order(
                                 sig["ticker"], sig["side"], "buy",
                                 contracts, sig["ask"], ioc=True,
@@ -368,6 +373,7 @@ def main():
                             if filled < 1:
                                 log("   ⚠️ IOC order did not fill")
                                 continue
+                            canary.record()
                             pos = book.record(sig, filled, live=True)
                             log(f"   ✅ LIVE fill: {filled}x @ {sig['ask']}c "
                                 f"(${pos['cost']:.2f})")
