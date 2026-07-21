@@ -125,15 +125,30 @@ def get_open_events(limit=200):
     return events
 
 
-def get_markets(series_ticker, limit=100):
-    """Open markets for one series (e.g. Kalshi's hourly BTC price series)."""
-    resp = session.get(
-        f"{base_url()}{API}/markets",
-        params={"series_ticker": series_ticker, "status": "open", "limit": limit},
-        timeout=TIMEOUT,
-    )
-    resp.raise_for_status()
-    return resp.json().get("markets") or []
+def get_markets(series_ticker, limit=500):
+    """Open markets for one series (e.g. Kalshi's hourly BTC price series).
+
+    Paginates so multi-interval strike ladders (each interval can have ~100
+    strikes) are all visible, not just the nearest interval.
+    """
+    markets, cursor = [], ""
+    while len(markets) < limit:
+        params = {
+            "series_ticker": series_ticker,
+            "status": "open",
+            "limit": min(200, limit - len(markets)),
+        }
+        if cursor:
+            params["cursor"] = cursor
+        resp = session.get(f"{base_url()}{API}/markets", params=params, timeout=TIMEOUT)
+        resp.raise_for_status()
+        data = resp.json()
+        batch = data.get("markets") or []
+        markets.extend(batch)
+        cursor = data.get("cursor")
+        if not cursor or not batch:
+            break
+    return markets
 
 
 def get_orderbook(ticker):
