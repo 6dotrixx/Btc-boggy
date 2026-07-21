@@ -35,6 +35,7 @@ def build_jobs():
     jobs.append(
         ("kalshi", bot, {"PM_VENUE": "kalshi", "PM_LEDGER_PATH": "paper_ledger_kalshi.json"})
     )
+    jobs.append(("kalshi-crypto", bot, {"PM_VENUE": "kalshi-crypto"}))
     return jobs
 
 

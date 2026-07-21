@@ -43,6 +43,10 @@ def main():
         from .kalshi_main import main as kalshi_main
 
         return kalshi_main()
+    if venue == "kalshi-crypto":
+        from .kalshi_crypto import main as crypto_main
+
+        return crypto_main()
 
     live = None
     if config.LIVE:
