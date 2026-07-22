@@ -120,6 +120,18 @@ def build_status():
             readiness[name] = bot_readiness(name, led)
     verdict = overall_verdict(readiness) if readiness else {
         "level": "collecting", "headline": "⏳ starting up…", "detail": ""}
+    # When live trading is enabled, the paper-verdict text is misleading —
+    # override it so the banner clearly reflects that real money is in play.
+    if os.environ.get("PM_LIVE") == "1":
+        crypto_live = os.environ.get("PM_CRYPTO_LIVE") == "1"
+        verdict = {
+            "level": "live",
+            "headline": "🔴 LIVE — trading real money",
+            "detail": "Real orders are enabled" + (" (arbitrage + crypto)" if crypto_live else
+                      " (arbitrage)") + ". The bots price markets continuously and place a trade the "
+                      "moment a real edge appears — quiet stretches are normal, they only trade when the "
+                      "numbers justify it. First live trades are ~50¢ to prove execution, then they size up.",
+        }
     return {"bots": bots, "ledgers": ledgers,
             "readiness": readiness, "verdict": verdict}
 
@@ -135,6 +147,7 @@ h1{font-size:18px;margin:0 0 12px}
 .b-ready{background:#0d2818;border-color:#3fb950;color:#7ee787}
 .b-underperform{background:#2d2508;border-color:#d29922;color:#e3b341}
 .b-collecting{background:#161b22;border-color:#30363d;color:#8b949e}
+.b-live{background:#2a1113;border-color:#f85149;color:#ff9d95}
 .card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px;margin-bottom:12px}
 .name{font-weight:bold;font-size:15px}
 .dot{display:inline-block;width:10px;height:10px;border-radius:5px;margin-right:8px}
