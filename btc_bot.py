@@ -20,8 +20,17 @@ from datetime import datetime, timezone
 API_KEY    = os.environ.get("CB_API_KEY", "")
 API_SECRET = os.environ.get("CB_API_SECRET", "")
 
-if not API_KEY or not API_SECRET:
-    raise ValueError("CB_API_KEY and CB_API_SECRET must be set in Railway environment variables.")
+# Paper mode (simulated money) is the DEFAULT and needs no keys. Real trading
+# only happens when CB_LIVE=1 AND both keys are present — so a beginner can
+# watch it work risk-free first, exactly like the Kalshi bot.
+LIVE  = os.environ.get("CB_LIVE", "0") == "1"
+PAPER = not (LIVE and API_KEY and API_SECRET)
+if LIVE and not (API_KEY and API_SECRET):
+    raise ValueError("CB_LIVE=1 requires CB_API_KEY and CB_API_SECRET to be set.")
+
+# Public price feed (no auth) — used for candles in paper mode.
+PUBLIC_CANDLES = "https://api.exchange.coinbase.com"
+PUBLIC_GRANULARITY = 3600  # 1-hour candles
 
 # ─────────────────────────────────────────
 #  ⚙️  STRATEGY SETTINGS (IMPROVED v2)
@@ -153,6 +162,8 @@ class CoinbaseBot:
         }
 
     def get_candles(self):
+        if PAPER:
+            return self._public_candles()
         path    = f"/api/v3/brokerage/products/{SYMBOL}/candles"
         params  = {"granularity": CANDLE_INTERVAL, "limit": 150}
         headers = self._headers("GET", path)
@@ -164,6 +175,21 @@ class CoinbaseBot:
             "closes": [float(c["close"]) for c in candles],
             "highs":  [float(c["high"])  for c in candles],
             "lows":   [float(c["low"])   for c in candles],
+        }
+
+    def _public_candles(self):
+        """Auth-free 1H candles from Coinbase Exchange (for paper mode)."""
+        resp = requests.get(
+            f"{PUBLIC_CANDLES}/products/{SYMBOL}/candles",
+            params={"granularity": PUBLIC_GRANULARITY}, timeout=15,
+        )
+        resp.raise_for_status()
+        # rows: [time, low, high, open, close, volume], newest first
+        rows = sorted(resp.json(), key=lambda r: r[0])[-150:]
+        return {
+            "closes": [float(r[4]) for r in rows],
+            "highs":  [float(r[2]) for r in rows],
+            "lows":   [float(r[1]) for r in rows],
         }
 
     def get_signals(self, data):
@@ -198,6 +224,8 @@ class CoinbaseBot:
         }
 
     def buy(self, usd_amount):
+        if PAPER:
+            return {"paper": True, "side": "BUY", "usd": round(usd_amount, 2)}
         path = "/api/v3/brokerage/orders"
         body = json.dumps({
             "client_order_id": f"bot-buy-{int(time.time())}",
@@ -213,6 +241,8 @@ class CoinbaseBot:
         return resp.json()
 
     def sell(self, btc_amount):
+        if PAPER:
+            return {"paper": True, "side": "SELL", "btc": round(btc_amount, 8)}
         path = "/api/v3/brokerage/orders"
         body = json.dumps({
             "client_order_id": f"bot-sell-{int(time.time())}",
@@ -232,7 +262,8 @@ class CoinbaseBot:
         print(f"[{ts}] {msg}", flush=True)
 
     def run(self):
-        self.log("🤖 BTC Bot v2 started — Coinbase Advanced")
+        mode = "🔴 LIVE (real money)" if not PAPER else "📝 PAPER (simulated)"
+        self.log(f"🤖 BTC Bot v2 started — Coinbase Advanced — {mode}")
         self.log(f"Strategy: EMA {EMA_FAST}/{EMA_SLOW} | RSI>{RSI_THRESHOLD} | ADX>{ADX_THRESHOLD} | 1H chart")
         self.log(f"Trade: ${TRADE_AMOUNT} | TP: +{TAKE_PROFIT_PCT*100}% | SL: -{STOP_LOSS_PCT*100}%")
         self.log("─" * 55)
