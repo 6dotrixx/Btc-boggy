@@ -35,7 +35,13 @@ from . import config, kalshi_api
 COINBASE = "https://api.exchange.coinbase.com"
 SERIES = [
     s.strip()
-    for s in os.environ.get("PM_CRYPTO_SERIES", "KXBTC,KXBTCD,KXETH,KXETHD").split(",")
+    for s in os.environ.get(
+        "PM_CRYPTO_SERIES",
+        # BTC/ETH are confirmed live. The rest are candidates: any series
+        # Kalshi doesn't actually list returns 0 markets and is skipped
+        # harmlessly (the heartbeat shows which are real).
+        "KXBTC,KXBTCD,KXETH,KXETHD,KXSOL,KXSOLD,KXXRP,KXXRPD,KXDOGE,KXDOGED",
+    ).split(",")
     if s.strip()
 ]
 MIN_MINUTES = float(os.environ.get("PM_CRYPTO_MIN_MINUTES", "3"))
@@ -44,15 +50,24 @@ EDGE_CENTS = float(os.environ.get("PM_CRYPTO_EDGE_CENTS", "4"))
 RISK_FRAC = float(os.environ.get("PM_CRYPTO_RISK_FRAC", "0.05"))
 DAILY_LOSS_FRAC = float(os.environ.get("PM_DAILY_LOSS_FRAC", "0.05"))
 VOL_GUARD_RATIO = float(os.environ.get("PM_CRYPTO_VOL_GUARD", "1.8"))
+# Absolute per-minute vol ceiling: above this the lognormal model is
+# unreliable (jumpy alt in a pump), so skip it — "pumping, but safely".
+MAX_VOL_1M = float(os.environ.get("PM_CRYPTO_MAX_VOL", "0.004"))
 BOOK_PATH = os.environ.get("PM_CRYPTO_BOOK_PATH", "paper_book_crypto.json")
 
 session = requests.Session()
-session.headers["User-Agent"] = "btc-boggy-kalshi-crypto/0.2"
+session.headers["User-Agent"] = "btc-boggy-kalshi-crypto/0.3"
+
+# Kalshi series ticker -> Coinbase spot product. Only coins with a liquid
+# Coinbase USD feed (needed for fair value) are eligible.
+COIN_SYMBOLS = ("BTC", "ETH", "SOL", "XRP", "DOGE", "ADA", "AVAX", "LINK", "LTC", "DOT")
 
 
 def product_for(series_ticker):
-    for sym in ("BTC", "ETH", "SOL", "XRP"):
-        if sym in series_ticker.upper():
+    t = series_ticker.upper()
+    # Longest symbols first so e.g. "LINK" isn't shadowed by a shorter match.
+    for sym in sorted(COIN_SYMBOLS, key=len, reverse=True):
+        if sym in t:
             return f"{sym}-USD"
     return None
 
@@ -334,6 +349,11 @@ def main():
                         continue
                     if spiking:
                         log(f"⚡ vol spike on {product} — skipping {series} this cycle")
+                        continue
+                    if sigma > MAX_VOL_1M:
+                        if heartbeat:
+                            log(f"🌪 {product} vol {sigma*100:.3f}%/min above ceiling "
+                                f"{MAX_VOL_1M*100:.3f}% — skipping {series} (model unreliable)")
                         continue
                     markets = kalshi_api.get_markets(series)
                     if heartbeat:
