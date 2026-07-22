@@ -22,10 +22,13 @@ import dashboard
 def build_jobs():
     """Each job: (name, argv, extra_env). Venues get separate paper ledgers."""
     jobs = []
-    if os.environ.get("CB_API_KEY"):
+    # BTC bot runs when enabled (CB_ENABLE=1 for paper, or keys present for
+    # live). Off by default so a Kalshi-only setup stays uncluttered.
+    if os.environ.get("CB_ENABLE") == "1" or os.environ.get("CB_API_KEY"):
         jobs.append(("btc", [sys.executable, "-u", "btc_bot.py"], {}))
     else:
-        print("[supervisor] CB_API_KEY not set — BTC bot disabled", flush=True)
+        print("[supervisor] BTC bot off (set CB_ENABLE=1 to run it in paper mode)",
+              flush=True)
 
     bot = [sys.executable, "-u", "-m", "polymarket_bot.main"]
     if os.environ.get("POLYMARKET_KEY_ID"):
