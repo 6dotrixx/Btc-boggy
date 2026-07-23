@@ -265,11 +265,14 @@ class PaperBook:
         return MAX_TOTAL_LOSS > 0 and self.state["realized"] <= -MAX_TOTAL_LOSS
 
     def halted(self):
-        """True when the daily loss limit has tripped (resets next UTC day),
-        or the hard lifetime loss cap has been reached (permanent)."""
+        """True when trading should stop. In active mode the hard total-loss
+        cap is the only limit (so it keeps wagering up to that cap); otherwise
+        the daily fractional stop also applies."""
         self._roll_day()
         if self.total_loss_hit():
             return True
+        if ACTIVE:
+            return False  # active mode governed solely by PM_MAX_TOTAL_LOSS
         limit = DAILY_LOSS_FRAC * max(self.state["day_start_bankroll"], 0.01)
         return self.state["day_pnl"] <= -limit
 
