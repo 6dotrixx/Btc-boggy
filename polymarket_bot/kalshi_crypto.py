@@ -46,7 +46,10 @@ SERIES = [
 ]
 MIN_MINUTES = float(os.environ.get("PM_CRYPTO_MIN_MINUTES", "3"))
 MAX_MINUTES = float(os.environ.get("PM_CRYPTO_MAX_MINUTES", "240"))
-EDGE_CENTS = float(os.environ.get("PM_CRYPTO_EDGE_CENTS", "4"))
+EDGE_CENTS = float(os.environ.get("PM_CRYPTO_EDGE_CENTS", "2"))
+# Hard lifetime loss cap: once cumulative realized loss reaches this many
+# dollars, the bot stops opening positions for good. Protects a small stake.
+MAX_TOTAL_LOSS = float(os.environ.get("PM_MAX_TOTAL_LOSS", "5"))
 RISK_FRAC = float(os.environ.get("PM_CRYPTO_RISK_FRAC", "0.05"))
 DAILY_LOSS_FRAC = float(os.environ.get("PM_DAILY_LOSS_FRAC", "0.05"))
 VOL_GUARD_RATIO = float(os.environ.get("PM_CRYPTO_VOL_GUARD", "1.8"))
@@ -212,9 +215,16 @@ class PaperBook:
         self.state["bankroll"] = dollars
         self._save()
 
+    def total_loss_hit(self):
+        """True once cumulative realized loss reaches the hard lifetime cap."""
+        return MAX_TOTAL_LOSS > 0 and self.state["realized"] <= -MAX_TOTAL_LOSS
+
     def halted(self):
-        """True when the daily loss limit has tripped (resets next UTC day)."""
+        """True when the daily loss limit has tripped (resets next UTC day),
+        or the hard lifetime loss cap has been reached (permanent)."""
         self._roll_day()
+        if self.total_loss_hit():
+            return True
         limit = DAILY_LOSS_FRAC * max(self.state["day_start_bankroll"], 0.01)
         return self.state["day_pnl"] <= -limit
 
@@ -330,8 +340,12 @@ def main():
             market_closed_logged = False
             if book.halted():
                 if not halted_logged:
-                    log(f"🛑 daily loss limit hit (day P&L ${book.state['day_pnl']:+.2f}) "
-                        "— no new positions until next UTC day")
+                    if book.total_loss_hit():
+                        log(f"🛑 HARD STOP — total loss cap ${MAX_TOTAL_LOSS:.2f} reached "
+                            f"(realized ${book.state['realized']:+.2f}). No further trades.")
+                    else:
+                        log(f"🛑 daily loss limit hit (day P&L ${book.state['day_pnl']:+.2f}) "
+                            "— no new positions until next UTC day")
                     halted_logged = True
             else:
                 halted_logged = False
