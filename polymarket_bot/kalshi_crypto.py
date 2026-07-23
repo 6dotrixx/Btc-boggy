@@ -58,6 +58,17 @@ VOL_GUARD_RATIO = float(os.environ.get("PM_CRYPTO_VOL_GUARD", "1.8"))
 MAX_VOL_1M = float(os.environ.get("PM_CRYPTO_MAX_VOL", "0.004"))
 BOOK_PATH = os.environ.get("PM_CRYPTO_BOOK_PATH", "paper_book_crypto.json")
 
+# ── Active mode (PM_CRYPTO_ACTIVE=1) ─────────────────────────────────────────
+# Reflex-style: place a small directional wager every PM_WAGER_MINUTES on the
+# nearest-the-money crypto contract, picking the side by short-term momentum,
+# and hold to settlement. This does NOT wait for a modeled edge — it's active
+# betting, protected only by the caps (per-wager size, max open, daily stop,
+# and the hard PM_MAX_TOTAL_LOSS floor).
+ACTIVE = os.environ.get("PM_CRYPTO_ACTIVE") == "1"
+WAGER_MINUTES = float(os.environ.get("PM_WAGER_MINUTES", "15"))
+WAGER_DOLLARS = float(os.environ.get("PM_WAGER_DOLLARS", "1"))
+MAX_OPEN = int(os.environ.get("PM_MAX_OPEN", "3"))
+
 session = requests.Session()
 session.headers["User-Agent"] = "btc-boggy-kalshi-crypto/0.3"
 
@@ -171,6 +182,40 @@ def evaluate(market, spot, sigma_1m, now=None):
                 "spot": spot,
                 "minutes": round(mins, 1),
                 "close_time": market.get("close_time"),
+            }
+    return None
+
+
+def evaluate_active(markets, spot, closes, book):
+    """Active-mode wager: pick the nearest-the-money contract in the trade
+    window and bet the direction of recent momentum. No edge required."""
+    ref = closes[-16] if len(closes) >= 16 else closes[0]
+    up = closes[-1] >= ref
+    best, best_dist = None, None
+    for m in markets:
+        if book.has_open(m.get("ticker", "")):
+            continue
+        mins = minutes_to_close(m)
+        if mins is None or not (MIN_MINUTES <= mins <= MAX_MINUTES):
+            continue
+        strike = parse_strike(m)
+        if not strike:
+            continue
+        dist = abs(spot - strike)
+        if best_dist is None or dist < best_dist:
+            best_dist, best = dist, m
+    if best is None:
+        return None
+    strike = parse_strike(best)
+    # Prefer the momentum side; fall back to the other if its book is empty.
+    for side in (("yes", "no") if up else ("no", "yes")):
+        ask = (best.get("yes_ask") if side == "yes" else best.get("no_ask")) or 0
+        if 1 <= ask <= 99:
+            return {
+                "ticker": best["ticker"], "side": side, "ask": int(ask),
+                "strike": strike, "spot": spot,
+                "close_time": best.get("close_time"),
+                "momentum": "up" if up else "down",
             }
     return None
 
@@ -311,10 +356,16 @@ def main():
             log(f"❌ API key check FAILED: {e} — fix KALSHI_API_KEY_ID / "
                 "KALSHI_PRIVATE_KEY_PEM in Railway Variables before going live")
 
-    log(f"🔍 Kalshi crypto fair-value bot started ({'LIVE' if live else 'PAPER'} mode)")
-    log(f"series={','.join(SERIES)} | edge>={EDGE_CENTS}c after fees | "
-        f"window={MIN_MINUTES}-{MAX_MINUTES}m | risk/trade={RISK_FRAC:.0%} | "
-        f"daily stop={DAILY_LOSS_FRAC:.0%} | vol guard x{VOL_GUARD_RATIO}")
+    log(f"🔍 Kalshi crypto {'ACTIVE-WAGER' if ACTIVE else 'fair-value'} bot started "
+        f"({'LIVE' if live else 'PAPER'} mode)")
+    if ACTIVE:
+        log(f"🎲 ACTIVE MODE — wager every {WAGER_MINUTES:.0f} min (~${WAGER_DOLLARS:.2f} each), "
+            f"max {MAX_OPEN} open | daily stop={DAILY_LOSS_FRAC:.0%} | "
+            f"HARD CAP: stops for good at ${MAX_TOTAL_LOSS:.2f} total loss")
+    else:
+        log(f"series={','.join(SERIES)} | edge>={EDGE_CENTS}c after fees | "
+            f"window={MIN_MINUTES}-{MAX_MINUTES}m | risk/trade={RISK_FRAC:.0%} | "
+            f"daily stop={DAILY_LOSS_FRAC:.0%} | vol guard x{VOL_GUARD_RATIO}")
 
     spots = {}
 
@@ -324,6 +375,29 @@ def main():
                 return spot
         return None
 
+    def buy(sig, contracts, tag):
+        """Execute a buy (live or paper) and record it. Returns the position."""
+        if contracts < 1:
+            return None
+        if live:
+            contracts = canary.cap(contracts)
+            order = kalshi_api.create_order(
+                sig["ticker"], sig["side"], "buy", contracts, sig["ask"], ioc=True)
+            remaining = order.get("remaining_count")
+            filled = (contracts - int(remaining) if remaining is not None
+                      else (contracts if order.get("status") == "executed" else 0))
+            if filled < 1:
+                log("   ⚠️ IOC order did not fill")
+                return None
+            canary.record()
+            pos = book.record(sig, filled, live=True)
+            log(f"   ✅ LIVE {tag}: {filled}x @ {sig['ask']}c (${pos['cost']:.2f})")
+            return pos
+        pos = book.record(sig, contracts)
+        log(f"   📝 paper {tag}: {contracts}x @ {sig['ask']}c (${pos['cost']:.2f})")
+        return pos
+
+    last_wager = 0.0
     halted_logged = False
     market_closed_logged = False
     cycle = 0
@@ -349,6 +423,7 @@ def main():
                     halted_logged = True
             else:
                 halted_logged = False
+                primary = None
                 for series in SERIES:
                     product = product_for(series)
                     if not product:
@@ -370,6 +445,8 @@ def main():
                                 f"{MAX_VOL_1M*100:.3f}% — skipping {series} (model unreliable)")
                         continue
                     markets = kalshi_api.get_markets(series)
+                    if primary is None and markets:
+                        primary = (markets, spot, closes)
                     if heartbeat:
                         if markets:
                             in_window = sum(
@@ -421,6 +498,19 @@ def main():
                             pos = book.record(sig, contracts)
                             log(f"   📝 paper position: {contracts}x @ {sig['ask']}c "
                                 f"(${pos['cost']:.2f})")
+
+                if ACTIVE and primary and len(book.state["open"]) < MAX_OPEN \
+                        and (time.time() - last_wager) >= WAGER_MINUTES * 60:
+                    mk, sp, cl = primary
+                    wsig = evaluate_active(mk, sp, cl, book)
+                    if wsig:
+                        aff = int(book.state["bankroll"] * 100 / wsig["ask"]) if wsig["ask"] else 0
+                        contracts = min(max(1, int(WAGER_DOLLARS * 100 / wsig["ask"])), aff)
+                        log(f"🎲 WAGER {wsig['side'].upper()} {wsig['ticker']} @ {wsig['ask']}c "
+                            f"(momentum {wsig['momentum']}, spot={wsig['spot']:.0f} "
+                            f"K={wsig['strike']:.0f})")
+                        if buy(wsig, contracts, "wager"):
+                            last_wager = time.time()
 
             for r in book.settle(spot_lookup):
                 emoji = "✅" if r["won"] else "❌"
