@@ -68,6 +68,8 @@ ACTIVE = os.environ.get("PM_CRYPTO_ACTIVE") == "1"
 WAGER_MINUTES = float(os.environ.get("PM_WAGER_MINUTES", "15"))
 WAGER_DOLLARS = float(os.environ.get("PM_WAGER_DOLLARS", "1"))
 MAX_OPEN = int(os.environ.get("PM_MAX_OPEN", "3"))
+# Cents to bid through the ask on a live wager so the IOC actually crosses.
+WAGER_SLIP_CENTS = int(os.environ.get("PM_WAGER_SLIP_CENTS", "2"))
 
 session = requests.Session()
 session.headers["User-Agent"] = "btc-boggy-kalshi-crypto/0.3"
@@ -232,6 +234,10 @@ class PaperBook:
         self.state = {
             "bankroll": config.BANKROLL, "wins": 0, "losses": 0,
             "realized": 0.0, "open": [],
+            # "fills" = positions actually opened (visible the instant a wager
+            # lands, before it settles). "last_trade" = human-readable summary
+            # of the most recent open so the dashboard can show live activity.
+            "fills": 0, "last_trade": "",
             "day": _today(), "day_start_bankroll": config.BANKROLL, "day_pnl": 0.0,
         }
         if os.path.exists(BOOK_PATH):
@@ -259,6 +265,38 @@ class PaperBook:
     def set_bankroll(self, dollars):
         self.state["bankroll"] = dollars
         self._save()
+
+    def set_status(self, msg):
+        """Publish a one-line, plain-English reason for what the bot is doing
+        right now, so the dashboard can show why it is (or isn't) wagering
+        without anyone reading the logs."""
+        if self.state.get("status") != msg:
+            self.state["status"] = msg
+            self._save()
+
+    def enter_mode(self, mode):
+        """Ensure the loss/settlement counters belong to the current mode.
+
+        The same ledger file is reused across restarts, but paper and live
+        P&L must never mix: a simulated paper drawdown must not trip the
+        real-money hard-loss cap (and vice-versa). The first time we run in a
+        new mode, start that mode's track record clean while keeping the
+        (real) bankroll that was just synced. Open positions are dropped —
+        they belong to the previous mode and can't be settled honestly here.
+
+        Returns True if a reset happened.
+        """
+        if self.state.get("mode") == mode:
+            return False
+        self.state["mode"] = mode
+        self.state.update({
+            "wins": 0, "losses": 0, "realized": 0.0, "open": [],
+            "fills": 0, "last_trade": "",
+            "day": _today(), "day_start_bankroll": self.state["bankroll"],
+            "day_pnl": 0.0,
+        })
+        self._save()
+        return True
 
     def total_loss_hit(self):
         """True once cumulative realized loss reaches the hard lifetime cap."""
@@ -290,6 +328,12 @@ class PaperBook:
         pos = {**sig, "contracts": contracts, "cost": round(cost, 4), "live": live,
                "opened": datetime.now(timezone.utc).isoformat()}
         self.state["open"].append(pos)
+        # Count the position the instant it opens so the dashboard reflects
+        # activity immediately, not only after the contract settles.
+        self.state["fills"] = self.state.get("fills", 0) + 1
+        self.state["last_trade"] = (
+            f"{'LIVE' if live else 'paper'} {sig['side'].upper()} {sig['ticker']} "
+            f"{contracts}x @ {sig['ask']}c (${cost:.2f})")
         self._save()
         return pos
 
@@ -347,6 +391,9 @@ def main():
         canary = Canary("live_canary_crypto.json")
         balance = kalshi_api.get_balance()  # also validates credentials
         book.set_bankroll(balance)
+        if book.enter_mode("live"):
+            log("🧹 fresh LIVE ledger — prior paper P&L discarded so it can't "
+                "trip the real-money loss cap")
         log(f"🔴 LIVE MODE — real orders; Kalshi balance ${balance:.2f}{canary.note()}")
     elif os.environ.get("KALSHI_API_KEY_ID"):
         # Paper mode doesn't use credentials, but verify them now so a typo
@@ -358,6 +405,9 @@ def main():
         except Exception as e:
             log(f"❌ API key check FAILED: {e} — fix KALSHI_API_KEY_ID / "
                 "KALSHI_PRIVATE_KEY_PEM in Railway Variables before going live")
+
+    if not live:
+        book.enter_mode("paper")
 
     log(f"🔍 Kalshi crypto {'ACTIVE-WAGER' if ACTIVE else 'fair-value'} bot started "
         f"({'LIVE' if live else 'PAPER'} mode)")
@@ -384,8 +434,12 @@ def main():
             return None
         if live:
             contracts = canary.cap(contracts)
+            # Bid a few cents through the ask so the IOC crosses even if the
+            # book moved since the quote. Kalshi fills at the resting offer
+            # price (≤ our limit), so this only improves fill odds, not cost.
+            limit = min(99, sig["ask"] + WAGER_SLIP_CENTS)
             order = kalshi_api.create_order(
-                sig["ticker"], sig["side"], "buy", contracts, sig["ask"], ioc=True)
+                sig["ticker"], sig["side"], "buy", contracts, limit, ioc=True)
             remaining = order.get("remaining_count")
             filled = (contracts - int(remaining) if remaining is not None
                       else (contracts if order.get("status") == "executed" else 0))
@@ -412,6 +466,8 @@ def main():
                 if not market_closed_logged:
                     log("⏸ exchange closed / maintenance — pausing until trading resumes")
                     market_closed_logged = True
+                book.set_status("⏸ Kalshi exchange in maintenance/closed — will resume "
+                                "automatically when it reopens")
                 time.sleep(config.SCAN_INTERVAL)
                 continue
             market_closed_logged = False
@@ -424,6 +480,12 @@ def main():
                         log(f"🛑 daily loss limit hit (day P&L ${book.state['day_pnl']:+.2f}) "
                             "— no new positions until next UTC day")
                     halted_logged = True
+                if book.total_loss_hit():
+                    book.set_status(f"🛑 stopped for good — hit the ${MAX_TOTAL_LOSS:.2f} "
+                                    f"real-money loss cap (P&L ${book.state['realized']:+.2f})")
+                else:
+                    book.set_status(f"🛑 daily loss stop hit (day ${book.state['day_pnl']:+.2f}) "
+                                    "— resumes next UTC day")
             else:
                 halted_logged = False
                 primary = None
@@ -502,6 +564,22 @@ def main():
                             log(f"   📝 paper position: {contracts}x @ {sig['ask']}c "
                                 f"(${pos['cost']:.2f})")
 
+                if ACTIVE:
+                    open_n = len(book.state["open"])
+                    wait_s = WAGER_MINUTES * 60 - (time.time() - last_wager)
+                    if not primary:
+                        book.set_status("🔍 no crypto markets in the "
+                                        f"{MIN_MINUTES:.0f}–{MAX_MINUTES:.0f}m window right now "
+                                        "(quiet hour) — checking every 30s")
+                    elif open_n >= MAX_OPEN:
+                        book.set_status(f"⏳ holding {open_n} open wagers (max {MAX_OPEN}) — "
+                                        "waiting for one to settle before the next")
+                    elif wait_s > 0:
+                        book.set_status(f"⏱ next wager in ~{int(wait_s // 60)}m "
+                                        f"({open_n} open, live)")
+                    else:
+                        book.set_status("🎲 placing a wager now…")
+
                 if ACTIVE and primary and len(book.state["open"]) < MAX_OPEN \
                         and (time.time() - last_wager) >= WAGER_MINUTES * 60:
                     mk, sp, cl = primary
@@ -514,6 +592,9 @@ def main():
                             f"K={wsig['strike']:.0f})")
                         if buy(wsig, contracts, "wager"):
                             last_wager = time.time()
+                    else:
+                        book.set_status("🔍 markets open but no priceable contract near the "
+                                        "money this cycle — retrying")
 
             for r in book.settle(spot_lookup):
                 emoji = "✅" if r["won"] else "❌"
