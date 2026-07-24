@@ -116,6 +116,7 @@ def build_status():
                 "losses": led.get("losses"),
                 "open": len(led.get("open") or []),
                 "last_trade": led.get("last_trade") or "",
+                "status": led.get("status") or "",
             }
         # readiness only for bots that are actually running
         if name in STATE:
@@ -188,6 +189,7 @@ async function tick(){
         const op = (led.open!=null) ? ` &nbsp;open: ${led.open}` : '';
         stats = `<div class="stats">P&amp;L: ${money(led.realized)}
           &nbsp;trades: ${led.fills||0}${op}${wl} &nbsp;bankroll: $${(led.bankroll||0).toFixed(2)}</div>`;
+        if(led.status) stats = `<div class="stats" style="color:#58a6ff">▶ ${led.status}</div>` + stats;
         if(led.last_trade) stats += `<div class="stats">last: ${led.last_trade}</div>`;
       }
       let tag='',bar='';

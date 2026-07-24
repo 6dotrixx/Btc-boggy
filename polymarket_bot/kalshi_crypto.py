@@ -266,6 +266,14 @@ class PaperBook:
         self.state["bankroll"] = dollars
         self._save()
 
+    def set_status(self, msg):
+        """Publish a one-line, plain-English reason for what the bot is doing
+        right now, so the dashboard can show why it is (or isn't) wagering
+        without anyone reading the logs."""
+        if self.state.get("status") != msg:
+            self.state["status"] = msg
+            self._save()
+
     def enter_mode(self, mode):
         """Ensure the loss/settlement counters belong to the current mode.
 
@@ -458,6 +466,8 @@ def main():
                 if not market_closed_logged:
                     log("⏸ exchange closed / maintenance — pausing until trading resumes")
                     market_closed_logged = True
+                book.set_status("⏸ Kalshi exchange in maintenance/closed — will resume "
+                                "automatically when it reopens")
                 time.sleep(config.SCAN_INTERVAL)
                 continue
             market_closed_logged = False
@@ -470,6 +480,12 @@ def main():
                         log(f"🛑 daily loss limit hit (day P&L ${book.state['day_pnl']:+.2f}) "
                             "— no new positions until next UTC day")
                     halted_logged = True
+                if book.total_loss_hit():
+                    book.set_status(f"🛑 stopped for good — hit the ${MAX_TOTAL_LOSS:.2f} "
+                                    f"real-money loss cap (P&L ${book.state['realized']:+.2f})")
+                else:
+                    book.set_status(f"🛑 daily loss stop hit (day ${book.state['day_pnl']:+.2f}) "
+                                    "— resumes next UTC day")
             else:
                 halted_logged = False
                 primary = None
@@ -548,6 +564,22 @@ def main():
                             log(f"   📝 paper position: {contracts}x @ {sig['ask']}c "
                                 f"(${pos['cost']:.2f})")
 
+                if ACTIVE:
+                    open_n = len(book.state["open"])
+                    wait_s = WAGER_MINUTES * 60 - (time.time() - last_wager)
+                    if not primary:
+                        book.set_status("🔍 no crypto markets in the "
+                                        f"{MIN_MINUTES:.0f}–{MAX_MINUTES:.0f}m window right now "
+                                        "(quiet hour) — checking every 30s")
+                    elif open_n >= MAX_OPEN:
+                        book.set_status(f"⏳ holding {open_n} open wagers (max {MAX_OPEN}) — "
+                                        "waiting for one to settle before the next")
+                    elif wait_s > 0:
+                        book.set_status(f"⏱ next wager in ~{int(wait_s // 60)}m "
+                                        f"({open_n} open, live)")
+                    else:
+                        book.set_status("🎲 placing a wager now…")
+
                 if ACTIVE and primary and len(book.state["open"]) < MAX_OPEN \
                         and (time.time() - last_wager) >= WAGER_MINUTES * 60:
                     mk, sp, cl = primary
@@ -560,6 +592,9 @@ def main():
                             f"K={wsig['strike']:.0f})")
                         if buy(wsig, contracts, "wager"):
                             last_wager = time.time()
+                    else:
+                        book.set_status("🔍 markets open but no priceable contract near the "
+                                        "money this cycle — retrying")
 
             for r in book.settle(spot_lookup):
                 emoji = "✅" if r["won"] else "❌"
