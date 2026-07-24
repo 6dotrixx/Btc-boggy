@@ -1,6 +1,14 @@
-requests
-pandas
-numpy
-py-clob-client-v2
-polymarket-us
-cryptography
+# Btc-boggy runtime dependencies — deliberately minimal so the build is fast
+# and can't break on a fragile transitive dependency.
+#
+# The Kalshi bots (kalshi + kalshi-crypto) and the dashboard need only these
+# two, both of which ship prebuilt wheels (no compiler needed):
+requests>=2.31,<3        # HTTP to Kalshi + Coinbase public data
+cryptography>=42,<44     # RSA-PSS request signing for Kalshi auth
+
+# ── Optional: Polymarket live trading only ───────────────────────────────────
+# Not needed for Kalshi. These pull in heavy web3/eth dependencies that can
+# break the build, so they're left out by default and imported lazily in code.
+# If (and only if) you run the Polymarket venue live, uncomment them:
+# py-clob-client-v2
+# polymarket-us
