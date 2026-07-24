@@ -189,11 +189,18 @@ def evaluate(market, spot, sigma_1m, now=None):
 
 
 def evaluate_active(markets, spot, closes, book):
-    """Active-mode wager: pick the nearest-the-money contract in the trade
-    window and bet the direction of recent momentum. No edge required."""
+    """Active-mode wager: among contracts in the trade window, walk outward
+    from the money and take the FIRST one that actually has a tradeable quote,
+    betting the direction of recent momentum. No modeled edge required.
+
+    The nearest-the-money strike frequently has no resting offer on Kalshi, so
+    picking only the single closest market (and giving up if it's unquoted)
+    means never trading even when plenty of liquid contracts exist. Walking
+    outward fixes that.
+    """
     ref = closes[-16] if len(closes) >= 16 else closes[0]
     up = closes[-1] >= ref
-    best, best_dist = None, None
+    eligible = []
     for m in markets:
         if book.has_open(m.get("ticker", "")):
             continue
@@ -203,22 +210,19 @@ def evaluate_active(markets, spot, closes, book):
         strike = parse_strike(m)
         if not strike:
             continue
-        dist = abs(spot - strike)
-        if best_dist is None or dist < best_dist:
-            best_dist, best = dist, m
-    if best is None:
-        return None
-    strike = parse_strike(best)
-    # Prefer the momentum side; fall back to the other if its book is empty.
-    for side in (("yes", "no") if up else ("no", "yes")):
-        ask = (best.get("yes_ask") if side == "yes" else best.get("no_ask")) or 0
-        if 1 <= ask <= 99:
-            return {
-                "ticker": best["ticker"], "side": side, "ask": int(ask),
-                "strike": strike, "spot": spot,
-                "close_time": best.get("close_time"),
-                "momentum": "up" if up else "down",
-            }
+        eligible.append((abs(spot - strike), strike, m))
+    eligible.sort(key=lambda e: e[0])
+    for _dist, strike, m in eligible:
+        # Prefer the momentum side; fall back to the other if its book is empty.
+        for side in (("yes", "no") if up else ("no", "yes")):
+            ask = (m.get("yes_ask") if side == "yes" else m.get("no_ask")) or 0
+            if 1 <= ask <= 99:
+                return {
+                    "ticker": m["ticker"], "side": side, "ask": int(ask),
+                    "strike": strike, "spot": spot,
+                    "close_time": m.get("close_time"),
+                    "momentum": "up" if up else "down",
+                }
     return None
 
 
@@ -531,6 +535,7 @@ def main():
             else:
                 halted_logged = False
                 primary = None
+                candidates = []
                 for series in SERIES:
                     product = product_for(series)
                     if not product:
@@ -552,8 +557,10 @@ def main():
                                 f"{MAX_VOL_1M*100:.3f}% — skipping {series} (model unreliable)")
                         continue
                     markets = kalshi_api.get_markets(series)
-                    if primary is None and markets:
-                        primary = (markets, spot, closes)
+                    if markets:
+                        candidates.append((markets, spot, closes))
+                        if primary is None:
+                            primary = (markets, spot, closes)
                     if heartbeat:
                         if markets:
                             in_window = sum(
@@ -606,10 +613,16 @@ def main():
                             log(f"   📝 paper position: {contracts}x @ {sig['ask']}c "
                                 f"(${pos['cost']:.2f})")
 
-                if ACTIVE:
+                if not ACTIVE:
+                    # Make it unmistakable on the dashboard when the every-15-min
+                    # wagering isn't switched on — the usual reason for "it never
+                    # trades": PM_CRYPTO_ACTIVE isn't set to 1.
+                    book.set_status("ℹ️ FAIR-VALUE mode — only trades on a rare modeled edge. "
+                                    "To bet every 15 min, set Railway var PM_CRYPTO_ACTIVE=1")
+                else:
                     open_n = len(book.state["open"])
                     wait_s = WAGER_MINUTES * 60 - (time.time() - last_wager)
-                    if not primary:
+                    if not candidates:
                         book.set_status("🔍 no crypto markets in the "
                                         f"{MIN_MINUTES:.0f}–{MAX_MINUTES:.0f}m window right now "
                                         "(quiet hour) — checking every 30s")
@@ -622,10 +635,13 @@ def main():
                     else:
                         book.set_status("🎲 placing a wager now…")
 
-                if ACTIVE and primary and len(book.state["open"]) < MAX_OPEN \
+                if ACTIVE and candidates and len(book.state["open"]) < MAX_OPEN \
                         and (time.time() - last_wager) >= WAGER_MINUTES * 60:
-                    mk, sp, cl = primary
-                    wsig = evaluate_active(mk, sp, cl, book)
+                    wsig = None
+                    for mk, sp, cl in candidates:  # try every coin until one is tradeable
+                        wsig = evaluate_active(mk, sp, cl, book)
+                        if wsig:
+                            break
                     if wsig:
                         aff = int(book.state["bankroll"] * 100 / wsig["ask"]) if wsig["ask"] else 0
                         contracts = min(max(1, int(WAGER_DOLLARS * 100 / wsig["ask"])), aff)
