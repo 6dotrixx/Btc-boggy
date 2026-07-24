@@ -232,6 +232,10 @@ class PaperBook:
         self.state = {
             "bankroll": config.BANKROLL, "wins": 0, "losses": 0,
             "realized": 0.0, "open": [],
+            # "fills" = positions actually opened (visible the instant a wager
+            # lands, before it settles). "last_trade" = human-readable summary
+            # of the most recent open so the dashboard can show live activity.
+            "fills": 0, "last_trade": "",
             "day": _today(), "day_start_bankroll": config.BANKROLL, "day_pnl": 0.0,
         }
         if os.path.exists(BOOK_PATH):
@@ -290,6 +294,12 @@ class PaperBook:
         pos = {**sig, "contracts": contracts, "cost": round(cost, 4), "live": live,
                "opened": datetime.now(timezone.utc).isoformat()}
         self.state["open"].append(pos)
+        # Count the position the instant it opens so the dashboard reflects
+        # activity immediately, not only after the contract settles.
+        self.state["fills"] = self.state.get("fills", 0) + 1
+        self.state["last_trade"] = (
+            f"{'LIVE' if live else 'paper'} {sig['side'].upper()} {sig['ticker']} "
+            f"{contracts}x @ {sig['ask']}c (${cost:.2f})")
         self._save()
         return pos
 
