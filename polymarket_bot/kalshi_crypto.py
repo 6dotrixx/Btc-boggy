@@ -68,6 +68,8 @@ ACTIVE = os.environ.get("PM_CRYPTO_ACTIVE") == "1"
 WAGER_MINUTES = float(os.environ.get("PM_WAGER_MINUTES", "15"))
 WAGER_DOLLARS = float(os.environ.get("PM_WAGER_DOLLARS", "1"))
 MAX_OPEN = int(os.environ.get("PM_MAX_OPEN", "3"))
+# Cents to bid through the ask on a live wager so the IOC actually crosses.
+WAGER_SLIP_CENTS = int(os.environ.get("PM_WAGER_SLIP_CENTS", "2"))
 
 session = requests.Session()
 session.headers["User-Agent"] = "btc-boggy-kalshi-crypto/0.3"
@@ -264,6 +266,30 @@ class PaperBook:
         self.state["bankroll"] = dollars
         self._save()
 
+    def enter_mode(self, mode):
+        """Ensure the loss/settlement counters belong to the current mode.
+
+        The same ledger file is reused across restarts, but paper and live
+        P&L must never mix: a simulated paper drawdown must not trip the
+        real-money hard-loss cap (and vice-versa). The first time we run in a
+        new mode, start that mode's track record clean while keeping the
+        (real) bankroll that was just synced. Open positions are dropped —
+        they belong to the previous mode and can't be settled honestly here.
+
+        Returns True if a reset happened.
+        """
+        if self.state.get("mode") == mode:
+            return False
+        self.state["mode"] = mode
+        self.state.update({
+            "wins": 0, "losses": 0, "realized": 0.0, "open": [],
+            "fills": 0, "last_trade": "",
+            "day": _today(), "day_start_bankroll": self.state["bankroll"],
+            "day_pnl": 0.0,
+        })
+        self._save()
+        return True
+
     def total_loss_hit(self):
         """True once cumulative realized loss reaches the hard lifetime cap."""
         return MAX_TOTAL_LOSS > 0 and self.state["realized"] <= -MAX_TOTAL_LOSS
@@ -357,6 +383,9 @@ def main():
         canary = Canary("live_canary_crypto.json")
         balance = kalshi_api.get_balance()  # also validates credentials
         book.set_bankroll(balance)
+        if book.enter_mode("live"):
+            log("🧹 fresh LIVE ledger — prior paper P&L discarded so it can't "
+                "trip the real-money loss cap")
         log(f"🔴 LIVE MODE — real orders; Kalshi balance ${balance:.2f}{canary.note()}")
     elif os.environ.get("KALSHI_API_KEY_ID"):
         # Paper mode doesn't use credentials, but verify them now so a typo
@@ -368,6 +397,9 @@ def main():
         except Exception as e:
             log(f"❌ API key check FAILED: {e} — fix KALSHI_API_KEY_ID / "
                 "KALSHI_PRIVATE_KEY_PEM in Railway Variables before going live")
+
+    if not live:
+        book.enter_mode("paper")
 
     log(f"🔍 Kalshi crypto {'ACTIVE-WAGER' if ACTIVE else 'fair-value'} bot started "
         f"({'LIVE' if live else 'PAPER'} mode)")
@@ -394,8 +426,12 @@ def main():
             return None
         if live:
             contracts = canary.cap(contracts)
+            # Bid a few cents through the ask so the IOC crosses even if the
+            # book moved since the quote. Kalshi fills at the resting offer
+            # price (≤ our limit), so this only improves fill odds, not cost.
+            limit = min(99, sig["ask"] + WAGER_SLIP_CENTS)
             order = kalshi_api.create_order(
-                sig["ticker"], sig["side"], "buy", contracts, sig["ask"], ioc=True)
+                sig["ticker"], sig["side"], "buy", contracts, limit, ioc=True)
             remaining = order.get("remaining_count")
             filled = (contracts - int(remaining) if remaining is not None
                       else (contracts if order.get("status") == "executed" else 0))
