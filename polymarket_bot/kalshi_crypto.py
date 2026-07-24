@@ -385,16 +385,38 @@ def main():
         run_preflight(series=SERIES[0] if SERIES else "KXBTC",
                       authed=bool(os.environ.get("KALSHI_API_KEY_ID")), log=log)
 
+    live_synced = False
     if live:
         from .canary import Canary
 
         canary = Canary("live_canary_crypto.json")
-        balance = kalshi_api.get_balance()  # also validates credentials
-        book.set_bankroll(balance)
+        # Clear any inherited paper P&L up front so it can never trip the
+        # real-money loss cap — do this even if the balance fetch below fails.
         if book.enter_mode("live"):
             log("🧹 fresh LIVE ledger — prior paper P&L discarded so it can't "
                 "trip the real-money loss cap")
-        log(f"🔴 LIVE MODE — real orders; Kalshi balance ${balance:.2f}{canary.note()}")
+        # Sync the real balance / validate credentials, with retries. A failure
+        # here means orders can't be placed, so make it loud and visible rather
+        # than crashing or silently degrading.
+        balance = None
+        for attempt in range(1, 4):
+            try:
+                balance = kalshi_api.get_balance()
+                break
+            except Exception as e:
+                log(f"⚠️ Kalshi connect/auth attempt {attempt}/3 failed: {e}")
+                time.sleep(2)
+        if balance is not None:
+            book.set_bankroll(balance)
+            live_synced = True
+            log(f"🔴 LIVE MODE — real orders; Kalshi balance ${balance:.2f}{canary.note()}")
+        else:
+            book.set_status("🔴 LIVE but CAN'T CONNECT to Kalshi to authenticate — orders "
+                            "paused. Check KALSHI_API_KEY_ID / KALSHI_PRIVATE_KEY_PEM. Retrying…")
+            log("❌ LIVE MODE but Kalshi auth/connect FAILED. Orders can't be placed until "
+                "this clears — will keep retrying each cycle. Most common cause: "
+                "KALSHI_PRIVATE_KEY_PEM pasted with literal \\n instead of real line breaks, "
+                "or a wrong/rotated KALSHI_API_KEY_ID.")
     elif os.environ.get("KALSHI_API_KEY_ID"):
         # Paper mode doesn't use credentials, but verify them now so a typo
         # is caught on the dashboard long before go-live.
@@ -438,8 +460,13 @@ def main():
             # book moved since the quote. Kalshi fills at the resting offer
             # price (≤ our limit), so this only improves fill odds, not cost.
             limit = min(99, sig["ask"] + WAGER_SLIP_CENTS)
-            order = kalshi_api.create_order(
-                sig["ticker"], sig["side"], "buy", contracts, limit, ioc=True)
+            try:
+                order = kalshi_api.create_order(
+                    sig["ticker"], sig["side"], "buy", contracts, limit, ioc=True)
+            except Exception as e:
+                log(f"   ❌ order rejected by Kalshi: {e}")
+                book.set_status(f"⚠️ Kalshi rejected the order: {e} — retrying next cycle")
+                return None
             remaining = order.get("remaining_count")
             filled = (contracts - int(remaining) if remaining is not None
                       else (contracts if order.get("status") == "executed" else 0))
@@ -471,6 +498,21 @@ def main():
                 time.sleep(config.SCAN_INTERVAL)
                 continue
             market_closed_logged = False
+            # If live but we never authenticated to Kalshi, keep retrying and
+            # do NOT attempt orders until it clears (an order would just error).
+            if live and not live_synced:
+                try:
+                    bal = kalshi_api.get_balance()
+                    book.set_bankroll(bal)
+                    live_synced = True
+                    log(f"🔴 connected to Kalshi — balance ${bal:.2f}; live orders now active")
+                except Exception as e:
+                    if heartbeat:
+                        log(f"⚠️ still can't reach/authenticate Kalshi: {e} — orders paused")
+                    book.set_status("🔴 LIVE but can't authenticate to Kalshi — orders paused; "
+                                    "retrying (check KALSHI_API_KEY_ID / KALSHI_PRIVATE_KEY_PEM)")
+                    time.sleep(config.SCAN_INTERVAL)
+                    continue
             if book.halted():
                 if not halted_logged:
                     if book.total_loss_hit():
