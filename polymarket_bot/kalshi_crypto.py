@@ -58,13 +58,25 @@ VOL_GUARD_RATIO = float(os.environ.get("PM_CRYPTO_VOL_GUARD", "1.8"))
 MAX_VOL_1M = float(os.environ.get("PM_CRYPTO_MAX_VOL", "0.004"))
 BOOK_PATH = os.environ.get("PM_CRYPTO_BOOK_PATH", "paper_book_crypto.json")
 
-# ── Active mode (PM_CRYPTO_ACTIVE=1) ─────────────────────────────────────────
+# ── Active mode ──────────────────────────────────────────────────────────────
 # Reflex-style: place a small directional wager every PM_WAGER_MINUTES on the
 # nearest-the-money crypto contract, picking the side by short-term momentum,
 # and hold to settlement. This does NOT wait for a modeled edge — it's active
 # betting, protected only by the caps (per-wager size, max open, daily stop,
 # and the hard PM_MAX_TOTAL_LOSS floor).
-ACTIVE = os.environ.get("PM_CRYPTO_ACTIVE") == "1"
+#
+# Resolution: an explicit PM_CRYPTO_ACTIVE wins and is parsed leniently
+# ("1"/"true"/"yes"/"on" → ON; "0"/"false"/"no"/"off" → OFF), so a stray value
+# like "1 " or "true" can't silently leave it in fair-value mode. If the var is
+# unset, default ON whenever live real-money crypto trading is enabled — if you
+# switched on live money you want it to actually trade — and OFF in paper mode
+# (the disciplined data-collection default for a fresh fork).
+_active_env = os.environ.get("PM_CRYPTO_ACTIVE")
+_live_enabled = config.LIVE and os.environ.get("PM_CRYPTO_LIVE") == "1"
+if _active_env is not None and _active_env.strip() != "":
+    ACTIVE = _active_env.strip().lower() not in ("0", "false", "no", "off")
+else:
+    ACTIVE = _live_enabled
 WAGER_MINUTES = float(os.environ.get("PM_WAGER_MINUTES", "15"))
 WAGER_DOLLARS = float(os.environ.get("PM_WAGER_DOLLARS", "1"))
 MAX_OPEN = int(os.environ.get("PM_MAX_OPEN", "3"))
