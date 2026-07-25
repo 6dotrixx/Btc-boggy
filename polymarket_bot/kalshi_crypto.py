@@ -395,6 +395,21 @@ def main():
     book = PaperBook()
     canary = None
 
+    # Loud, unmistakable startup banner: the first thing in the logs states the
+    # exact effective setup, so it's instantly clear whether real-money active
+    # wagering is armed — no digging required.
+    _keys = bool(os.environ.get("KALSHI_API_KEY_ID") and os.environ.get("KALSHI_PRIVATE_KEY_PEM"))
+    log("══════════════════════════════════════════════════════════")
+    log(f"  Kalshi crypto bot • {'🔴 LIVE (real money)' if live else '📝 PAPER'} • "
+        f"{'🎲 ACTIVE wagering ON' if ACTIVE else '🧮 fair-value only'}")
+    log(f"  keys set: {'yes' if _keys else 'NO'} | wager ~${WAGER_DOLLARS:.2f} every "
+        f"{WAGER_MINUTES:.0f} min | hard loss cap ${MAX_TOTAL_LOSS:.2f}")
+    if live and ACTIVE and _keys:
+        log("  → armed: will place the first real wager within one cycle")
+    elif live and not _keys:
+        log("  → LIVE on but KEYS MISSING — set KALSHI_API_KEY_ID / KALSHI_PRIVATE_KEY_PEM")
+    log("══════════════════════════════════════════════════════════")
+
     if live or os.environ.get("PM_SELFTEST") == "1":
         from .selftest import run_preflight
 
