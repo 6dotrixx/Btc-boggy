@@ -46,7 +46,11 @@ SERIES = [
 ]
 MIN_MINUTES = float(os.environ.get("PM_CRYPTO_MIN_MINUTES", "3"))
 MAX_MINUTES = float(os.environ.get("PM_CRYPTO_MAX_MINUTES", "240"))
-EDGE_CENTS = float(os.environ.get("PM_CRYPTO_EDGE_CENTS", "2"))
+# Min model edge (cents, after fees) before a fair-value trade. Dialed in via
+# scripts/dial_in_edge.py: below ~6c the bot trades on its own model noise and
+# loses to the spread+fee; a high bar means it only acts on strong, real
+# mispricings (rare, but the only trades that aren't -EV). Protects capital.
+EDGE_CENTS = float(os.environ.get("PM_CRYPTO_EDGE_CENTS", "6"))
 # Hard lifetime loss cap: once cumulative realized loss reaches this many
 # dollars, the bot stops opening positions for good. Protects a small stake.
 MAX_TOTAL_LOSS = float(os.environ.get("PM_MAX_TOTAL_LOSS", "5"))
@@ -65,18 +69,14 @@ BOOK_PATH = os.environ.get("PM_CRYPTO_BOOK_PATH", "paper_book_crypto.json")
 # betting, protected only by the caps (per-wager size, max open, daily stop,
 # and the hard PM_MAX_TOTAL_LOSS floor).
 #
-# Resolution: an explicit PM_CRYPTO_ACTIVE wins and is parsed leniently
-# ("1"/"true"/"yes"/"on" → ON; "0"/"false"/"no"/"off" → OFF), so a stray value
-# like "1 " or "true" can't silently leave it in fair-value mode. If the var is
-# unset, default ON whenever live real-money crypto trading is enabled — if you
-# switched on live money you want it to actually trade — and OFF in paper mode
-# (the disciplined data-collection default for a fresh fork).
+# Resolution: OFF by default, everywhere. Active momentum-betting every 15 min
+# is NEGATIVE expected value — scripts/paper_sim_50.py shows ~-4c/trade and only
+# 33% of 50-trade runs finish positive (it's a coin flip minus the fee). So it
+# must never run unless you explicitly opt in with PM_CRYPTO_ACTIVE (parsed
+# leniently: "1"/"true"/"yes"/"on" → ON). The disciplined fair-value + arbitrage
+# path is the default because it's the only one that isn't structurally -EV.
 _active_env = os.environ.get("PM_CRYPTO_ACTIVE")
-_live_enabled = config.LIVE and os.environ.get("PM_CRYPTO_LIVE") == "1"
-if _active_env is not None and _active_env.strip() != "":
-    ACTIVE = _active_env.strip().lower() not in ("0", "false", "no", "off")
-else:
-    ACTIVE = _live_enabled
+ACTIVE = bool(_active_env) and _active_env.strip().lower() in ("1", "true", "yes", "on")
 WAGER_MINUTES = float(os.environ.get("PM_WAGER_MINUTES", "15"))
 WAGER_DOLLARS = float(os.environ.get("PM_WAGER_DOLLARS", "1"))
 MAX_OPEN = int(os.environ.get("PM_MAX_OPEN", "3"))
