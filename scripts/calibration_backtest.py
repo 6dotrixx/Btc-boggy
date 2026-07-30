@@ -15,14 +15,16 @@ import sys
 from polymarket_bot import kalshi_api
 
 
-def fetch_settled(target=3000):
+def fetch_settled(target=1000, max_pages=25):
     """Recent settled markets with a real last price and a yes/no result.
 
     Gentle on the API: small pages, a pause between them, and backoff on 429.
-    Returns whatever it gathered — a partial sample still calibrates fine.
+    Hard page cap so it can never stall; returns whatever it gathered — a
+    partial sample of a few hundred still calibrates fine.
     """
-    out, cursor = [], ""
-    while len(out) < target:
+    out, cursor, pages = [], "", 0
+    while len(out) < target and pages < max_pages:
+        pages += 1
         params = {"status": "settled", "limit": 200}
         if cursor:
             params["cursor"] = cursor
