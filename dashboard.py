@@ -117,6 +117,9 @@ def build_status():
                 "open": len(led.get("open") or []),
                 "last_trade": led.get("last_trade") or "",
                 "status": led.get("status") or "",
+                "detected": led.get("detected"),
+                "biggest": led.get("biggest"),
+                "by_kind": led.get("by_kind"),
             }
         # readiness only for bots that are actually running
         if name in STATE:
@@ -191,6 +194,13 @@ async function tick(){
           &nbsp;trades: ${led.fills||0}${op}${wl} &nbsp;bankroll: $${(led.bankroll||0).toFixed(2)}</div>`;
         if(led.status) stats = `<div class="stats" style="color:#58a6ff">▶ ${led.status}</div>` + stats;
         if(led.last_trade) stats += `<div class="stats">last: ${led.last_trade}</div>`;
+        if(led.detected!=null){
+          const cap = led.detected>0 ? Math.round(100*(led.fills||0)/led.detected) : 0;
+          const kinds = led.by_kind ? Object.entries(led.by_kind).map(([k,v])=>`${k}:${v}`).join(' ') : '';
+          stats += `<div class="stats">locked arbs: ${led.fills||0} of ${led.detected} seen`
+            + ` (${cap}% captured) &nbsp;biggest: $${(led.biggest||0).toFixed(2)}`
+            + (kinds?` &nbsp;${kinds}`:'') + `</div>`;
+        }
       }
       let tag='',bar='';
       if(rd){
