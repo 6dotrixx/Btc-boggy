@@ -77,6 +77,8 @@ def main():
             found = 0
             for arb in kalshi_scanner.scan(events):
                 found += 1
+                if not live:
+                    trader.note_detected()
                 handle(arb)
 
             # Cross-strike ladder arbs: nested threshold markets the event
@@ -86,6 +88,8 @@ def main():
             def hunt_ladders(mkts):
                 nonlocal found
                 for cand in kalshi_ladder_arb.scan_ladders(mkts):
+                    if not live:
+                        trader.note_detected()
                     # Stage 2: confirm against live books and size to real depth
                     # before acting — a stage-1 flag at size 1 becomes the max
                     # the book allows, or is dropped if the edge has moved.
