@@ -83,20 +83,26 @@ def main():
             # scanner can't see. _classify() safely skips brackets, so this is
             # safe to run across EVERY event — the edges live in the illiquid,
             # boring markets where quotes go stale, not just crypto.
-            # Wide pass: every open event's nested markets (no extra API calls).
+            def hunt_ladders(mkts):
+                nonlocal found
+                for cand in kalshi_ladder_arb.scan_ladders(mkts):
+                    # Stage 2: confirm against live books and size to real depth
+                    # before acting — a stage-1 flag at size 1 becomes the max
+                    # the book allows, or is dropped if the edge has moved.
+                    arb = kalshi_ladder_arb.confirm_depth(cand)
+                    if arb:
+                        found += 1
+                        handle(arb)
+
+            # Wide pass: every open event's nested markets (no extra fetch).
             for event in events:
-                for arb in kalshi_ladder_arb.scan_ladders(event.get("markets") or []):
-                    found += 1
-                    handle(arb)
+                hunt_ladders(event.get("markets") or [])
             # Deep pass: full crypto strike ladders (paginated, more strikes).
             for series in CRYPTO_SERIES:
                 try:
-                    mkts = kalshi_api.get_markets(series)
+                    hunt_ladders(kalshi_api.get_markets(series))
                 except Exception:
                     continue
-                for arb in kalshi_ladder_arb.scan_ladders(mkts):
-                    found += 1
-                    handle(arb)
 
             if found == 0:
                 log(f"scanned {len(events)} events (set + ladder arbs) "

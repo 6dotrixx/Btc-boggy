@@ -20,12 +20,17 @@ $1 floor; the middle-bracket $2 is upside we don't count.
 Stage-1 detector off the bulk quotes; real depth is confirmed at execution.
 """
 
+import os
+
 from . import config, kalshi_api
 from .kalshi_crypto import minutes_to_close
 
 # Skip contracts within this many minutes of close — near-settlement quotes go
 # wide/stale and manufacture false inversions.
 MIN_MINUTES_LEFT = 2.0
+# Hard ceiling on sets per catch, even if the book is deeper (belt-and-braces
+# for live mode). Book depth and bankroll usually bind first.
+MAX_SETS = int(os.environ.get("PM_ARB_MAX_SETS", "1000"))
 
 
 def _classify(m):
@@ -104,3 +109,41 @@ def scan_ladders(markets):
             "edge": round(best["edge"] / 100.0, 4),
             "size": 1,  # stage-1; real depth confirmed at execution
         }
+
+
+def confirm_depth(arb):
+    """Stage-2: re-price a candidate against live order books and size it to
+    the real depth. Returns the arb with confirmed prices + max fillable
+    `size`, or None if the edge evaporated (quotes moved) or a book is empty.
+
+    Depth is the point: stage-1 flags the inversion at size 1; here we learn how
+    many sets actually clear at a locking price and take the largest the thinner
+    leg allows — that's what turns a 6c catch into real dollars.
+    """
+    confirmed = []
+    for leg in arb["legs"]:
+        book = kalshi_api.get_orderbook(leg["ticker"])
+        quote = kalshi_api.best_cross(book, leg["side"])   # (ask_cents, depth)
+        if not quote:
+            return None
+        ask, depth = quote
+        if not (1 <= ask <= 99) or depth < 1:
+            return None
+        confirmed.append((leg, ask, depth))
+
+    cost_c = sum(a for _, a, _ in confirmed)
+    fees = sum(kalshi_api.taker_fee_cents(a) for _, a, _ in confirmed)
+    edge_c = 100 - cost_c - fees                            # guaranteed $1 floor
+    if edge_c < config.MIN_EDGE * 100:
+        return None
+    size = min(min(d for _, _, d in confirmed), MAX_SETS)
+    if size < 1:
+        return None
+    return {
+        **arb,
+        "legs": [{**leg, "price": a} for leg, a, _ in confirmed],
+        "cost": round(cost_c / 100.0, 4),
+        "edge": round(edge_c / 100.0, 4),
+        "size": size,
+        "profit": round(edge_c / 100.0 * size, 4),
+    }
