@@ -9,22 +9,35 @@ the fee makes it a loser.
 
 Public data only, no keys, no orders.
 """
+import time
 import sys
 
 from polymarket_bot import kalshi_api
 
 
-def fetch_settled(target=4000):
-    """Recent settled markets with a real last price and a yes/no result."""
+def fetch_settled(target=3000):
+    """Recent settled markets with a real last price and a yes/no result.
+
+    Gentle on the API: small pages, a pause between them, and backoff on 429.
+    Returns whatever it gathered — a partial sample still calibrates fine.
+    """
     out, cursor = [], ""
     while len(out) < target:
-        params = {"status": "settled", "limit": 1000}
+        params = {"status": "settled", "limit": 200}
         if cursor:
             params["cursor"] = cursor
-        resp = kalshi_api.session.get(
-            f"{kalshi_api.base_url()}{kalshi_api.API}/markets",
-            params=params, timeout=30)
-        resp.raise_for_status()
+        for attempt in range(4):
+            resp = kalshi_api.session.get(
+                f"{kalshi_api.base_url()}{kalshi_api.API}/markets",
+                params=params, timeout=30)
+            if resp.status_code == 429:
+                time.sleep(1.5 * (attempt + 1))
+                continue
+            resp.raise_for_status()
+            break
+        else:
+            print(f"  (rate-limited after {len(out)} markets — using the sample so far)")
+            break
         data = resp.json()
         for m in data.get("markets") or []:
             res = (m.get("result") or "").lower()
@@ -34,6 +47,7 @@ def fetch_settled(target=4000):
         cursor = data.get("cursor")
         if not cursor:
             break
+        time.sleep(0.35)
     return out
 
 
