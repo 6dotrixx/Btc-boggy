@@ -18,3 +18,5 @@ jobs:
         run: pip install -r requirements.txt
       - name: Live arb scan
         run: PYTHONPATH=. python scripts/live_arb_scan.py
+      - name: Favorite calibration backtest
+        run: PYTHONPATH=. python scripts/calibration_backtest.py
