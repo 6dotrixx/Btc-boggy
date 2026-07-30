@@ -79,23 +79,28 @@ def main():
                 found += 1
                 handle(arb)
 
-            # Cross-strike ladder arbs: threshold markets the event scanner
-            # can't see (nested, not mutually exclusive). Scan each crypto
-            # ladder for a monotonicity inversion that locks a guaranteed dollar.
-            ladders = 0
+            # Cross-strike ladder arbs: nested threshold markets the event
+            # scanner can't see. _classify() safely skips brackets, so this is
+            # safe to run across EVERY event — the edges live in the illiquid,
+            # boring markets where quotes go stale, not just crypto.
+            # Wide pass: every open event's nested markets (no extra API calls).
+            for event in events:
+                for arb in kalshi_ladder_arb.scan_ladders(event.get("markets") or []):
+                    found += 1
+                    handle(arb)
+            # Deep pass: full crypto strike ladders (paginated, more strikes).
             for series in CRYPTO_SERIES:
                 try:
                     mkts = kalshi_api.get_markets(series)
                 except Exception:
                     continue
                 for arb in kalshi_ladder_arb.scan_ladders(mkts):
-                    ladders += 1
                     found += 1
                     handle(arb)
 
             if found == 0:
-                log(f"scanned {len(events)} events + {len(CRYPTO_SERIES)} ladders "
-                    "— no arbs above threshold")
+                log(f"scanned {len(events)} events (set + ladder arbs) "
+                    "— none above threshold")
         except Exception as e:
             if type(e).__name__ == "LegRiskError":
                 log(f"🛑 {e}")
