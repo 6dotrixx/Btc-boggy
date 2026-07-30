@@ -6,7 +6,8 @@ Market data is public — paper mode needs NO credentials at all.
 import time
 from datetime import datetime, timezone
 
-from . import config, kalshi_api, kalshi_scanner
+from . import config, kalshi_api, kalshi_ladder_arb, kalshi_scanner
+from .kalshi_crypto import SERIES as CRYPTO_SERIES
 from .paper import PaperTrader
 
 
@@ -47,10 +48,8 @@ def main():
                 time.sleep(config.SCAN_INTERVAL)
                 continue
             market_closed_logged = False
-            events = kalshi_api.get_open_events()
-            found = 0
-            for arb in kalshi_scanner.scan(events):
-                found += 1
+
+            def handle(arb):
                 legs = " + ".join(f"{l['side'].upper()}@{l['price']}c" for l in arb["legs"])
                 log(
                     f"💰 {arb['kind']} edge=${arb['edge']:.2f}/set size={arb['size']} "
@@ -73,8 +72,30 @@ def main():
                             f"locked +${fill['profit']:.4f} "
                             f"(total +${trader.realized:.4f} over {trader.fills} fills)"
                         )
+
+            events = kalshi_api.get_open_events()
+            found = 0
+            for arb in kalshi_scanner.scan(events):
+                found += 1
+                handle(arb)
+
+            # Cross-strike ladder arbs: threshold markets the event scanner
+            # can't see (nested, not mutually exclusive). Scan each crypto
+            # ladder for a monotonicity inversion that locks a guaranteed dollar.
+            ladders = 0
+            for series in CRYPTO_SERIES:
+                try:
+                    mkts = kalshi_api.get_markets(series)
+                except Exception:
+                    continue
+                for arb in kalshi_ladder_arb.scan_ladders(mkts):
+                    ladders += 1
+                    found += 1
+                    handle(arb)
+
             if found == 0:
-                log(f"scanned {len(events)} events — no set arbs above threshold")
+                log(f"scanned {len(events)} events + {len(CRYPTO_SERIES)} ladders "
+                    "— no arbs above threshold")
         except Exception as e:
             if type(e).__name__ == "LegRiskError":
                 log(f"🛑 {e}")
