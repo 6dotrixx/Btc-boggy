@@ -1,7 +1,8 @@
 name: live-arb-scan
 
-# Manual one-shot: run the arb engine against LIVE public Kalshi data from a
-# GitHub runner (open internet). Read-only, no keys, no orders.
+# Manual one-shot: run the arb engine + favorite calibration backtest against
+# LIVE public Kalshi data from a GitHub runner (open internet). Read-only, no
+# keys, no orders.
 on:
   workflow_dispatch:
 
@@ -18,3 +19,5 @@ jobs:
         run: pip install -r requirements.txt
       - name: Live arb scan
         run: PYTHONPATH=. python scripts/live_arb_scan.py
+      - name: Favorite calibration backtest
+        run: PYTHONPATH=. python scripts/calibration_backtest.py
