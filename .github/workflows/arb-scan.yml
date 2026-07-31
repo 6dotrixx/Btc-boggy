@@ -21,3 +21,5 @@ jobs:
         run: PYTHONPATH=. python scripts/live_arb_scan.py
       - name: Favorite calibration backtest
         run: PYTHONPATH=. python scripts/calibration_backtest.py
+      - name: Spread survey (market-making opportunity)
+        run: PYTHONPATH=. python scripts/spread_survey.py
