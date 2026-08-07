@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Nova Guardians</title>
+<style>
+  :root { --accent:#5ad1ff; --bg:#05060f; }
+  * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  html,body { height:100%; background:var(--bg); overflow:hidden; font-family:'Segoe UI',system-ui,sans-serif; color:#eaf2ff; }
+  #wrap { position:relative; width:100vw; height:100vh; display:flex; align-items:center; justify-content:center; }
+  canvas { background:#05060f; touch-action:none; display:block; box-shadow:0 0 60px rgba(90,120,255,.25); }
+
+  .overlay { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:radial-gradient(ellipse at 50% 30%, rgba(40,30,90,.55), rgba(5,6,15,.92)); backdrop-filter:blur(4px);
+    text-align:center; padding:24px; z-index:10; overflow-y:auto; }
+  .hidden { display:none !important; }
+  h1 { font-size:clamp(30px,7vw,60px); letter-spacing:3px; margin-bottom:6px; font-weight:800;
+    background:linear-gradient(90deg,#5ad1ff,#a97bff,#ff7bd0); -webkit-background-clip:text; background-clip:text; color:transparent;
+    text-shadow:0 0 30px rgba(120,90,255,.4); }
+  .tag { opacity:.6; letter-spacing:4px; font-size:12px; text-transform:uppercase; margin-bottom:22px; }
+  .sub { opacity:.75; margin-bottom:24px; font-size:15px; max-width:460px; line-height:1.5; }
+  .btn { background:linear-gradient(90deg,#5ad1ff,#a97bff); color:#05121f; border:none; font-weight:800;
+    font-size:18px; padding:14px 46px; border-radius:40px; cursor:pointer; letter-spacing:2px;
+    box-shadow:0 6px 30px rgba(120,90,255,.45); transition:transform .1s; }
+  .btn:active { transform:scale(.95); }
+  .stat-line { opacity:.75; margin-top:18px; font-size:13px; }
+  .credit { position:absolute; bottom:10px; font-size:11px; opacity:.35; }
+
+  /* Hero roster */
+  #heroes .roster { display:flex; gap:14px; flex-wrap:wrap; justify-content:center; margin:8px 0 22px; max-width:720px; }
+  .hero { width:158px; background:rgba(20,24,44,.85); border:1px solid #2a3560; border-radius:16px; padding:12px;
+    cursor:pointer; transition:transform .12s, border-color .12s, box-shadow .12s; }
+  .hero:hover { transform:translateY(-6px); border-color:var(--hc,#5ad1ff); box-shadow:0 12px 34px rgba(120,90,255,.3); }
+  .hero .portrait { width:100%; aspect-ratio:3/4; margin-bottom:10px; border-radius:12px; overflow:hidden;
+    border:1px solid #2a3560; display:flex; align-items:center; justify-content:center; }
+  .hero .portrait .art { width:100%; height:100%; object-fit:cover; display:block; }
+  .hero .av { width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:44px; }
+  .hero .hn { font-weight:700; font-size:16px; }
+  .hero .hr { font-size:11px; opacity:.6; text-transform:uppercase; letter-spacing:1px; margin:2px 0 8px; }
+  .hero .hp { font-size:12px; opacity:.85; line-height:1.4; }
+
+  /* Upgrade cards */
+  #upgrade .cards { display:flex; gap:16px; flex-wrap:wrap; justify-content:center; margin-top:10px; }
+  .card { width:180px; background:rgba(20,24,44,.9); border:1px solid #2a3560; border-radius:16px; padding:20px 16px;
+    cursor:pointer; transition:transform .12s, border-color .12s, box-shadow .12s; }
+  .card:hover { transform:translateY(-6px); border-color:var(--accent); box-shadow:0 10px 30px rgba(90,209,255,.28); }
+  .card.weapon-card { border-color:#ffd15a88; background:linear-gradient(180deg,rgba(60,48,20,.9),rgba(20,24,44,.9)); }
+  .card.weapon-card:hover { border-color:#ffd15a; box-shadow:0 10px 30px rgba(255,209,90,.3); }
+  .card .ico { font-size:38px; margin-bottom:10px; }
+  .card .name { font-weight:700; font-size:17px; margin-bottom:6px; }
+  .card .desc { font-size:13px; opacity:.7; line-height:1.4; }
+  .card .rar { font-size:11px; text-transform:uppercase; letter-spacing:1px; margin-top:10px; opacity:.9; }
+
+  /* HUD */
+  #hud { position:absolute; top:0; left:0; right:0; padding:12px 16px; z-index:5; pointer-events:none;
+    display:flex; justify-content:space-between; align-items:flex-start; font-size:14px; font-weight:600; }
+  #hud .right { text-align:right; }
+  .bar { width:min(46vw,220px); height:14px; background:#0a0d1a; border:1px solid #2a3560; border-radius:8px; overflow:hidden; margin-top:4px; }
+  .bar > i { display:block; height:100%; background:linear-gradient(90deg,#ff5a7a,#ff9a5a); width:100%; transition:width .15s; }
+  .pill { display:inline-block; background:rgba(20,24,44,.9); border:1px solid #2a3560; padding:4px 10px; border-radius:20px; }
+  #joyhint { position:absolute; bottom:20px; left:0; right:0; text-align:center; font-size:13px; opacity:.4; z-index:5; pointer-events:none; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="c"></canvas>
+
+  <div id="hud" class="hidden">
+    <div class="left">
+      <div>❤️ HP</div>
+      <div class="bar"><i id="hpbar"></i></div>
+      <div style="margin-top:8px">Sector <span id="room">1</span></div>
+    </div>
+    <div class="right">
+      <div>💎 <span id="coins">0</span></div>
+      <div style="margin-top:6px" class="pill">Rank <span id="level">1</span></div>
+      <div style="margin-top:6px" class="pill" id="weapon">🔫 Pulse Blaster</div>
+    </div>
+  </div>
+
+  <div id="joyhint" class="hidden">Drag anywhere to move · stand still to shoot</div>
+
+  <!-- Start screen -->
+  <div id="start" class="overlay">
+    <h1>NOVA GUARDIANS</h1>
+    <div class="tag">Defenders of the Drift</div>
+    <p class="sub">Space monsters flood the station, room after room.
+      Run to dodge, stand your ground to shoot, and clear each chamber to open
+      the gate to the next. How deep can your guardian push?</p>
+    <button class="btn" id="startBtn">CHOOSE GUARDIAN</button>
+    <div class="stat-line">Move: <b>WASD / Arrows</b> or <b>drag</b> &nbsp;·&nbsp; Auto-fire when still</div>
+    <div class="credit">An original game — inspired by the cosmic roguelite-shooter genre.</div>
+  </div>
+
+  <!-- Hero select -->
+  <div id="heroes" class="overlay hidden">
+    <h1 style="font-size:34px">CHOOSE YOUR GUARDIAN</h1>
+    <p class="sub" style="margin-bottom:4px">Each guardian fights with a signature weapon and an edge of their own.</p>
+    <div class="roster" id="roster"></div>
+  </div>
+
+  <!-- Upgrade screen -->
+  <div id="upgrade" class="overlay hidden">
+    <h1 style="font-size:34px">SALVAGE A POWER</h1>
+    <p class="sub" style="margin-bottom:6px">Sector cleared. Choose one upgrade.</p>
+    <div class="cards" id="cards"></div>
+  </div>
+
+  <!-- Game over -->
+  <div id="over" class="overlay hidden">
+    <h1 style="background:linear-gradient(90deg,#ff5a7a,#ffa15a);-webkit-background-clip:text;background-clip:text;color:transparent">GUARDIAN DOWN</h1>
+    <p class="sub" id="overStats">The rift swallowed your guardian.</p>
+    <button class="btn" id="againBtn">LAUNCH AGAIN</button>
+  </div>
+</div>
+
+<script src="game.js"></script>
+</body>
+</html>
