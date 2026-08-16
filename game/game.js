@@ -139,10 +139,10 @@ let warpFx = 0;         // transition flash when entering a new room
 // ---------- Room theming (station chambers, palette shifts as you go deeper) ----------
 const PAD = 24;                     // wall thickness — playfield is inset by this
 const ROOM_THEMES = [
-  { floor:'#161c30', tile:'#1d2542', wall:'#2c3660', glow:'#5ad1ff' },   // azure deck
-  { floor:'#1f1630', tile:'#291d42', wall:'#43306a', glow:'#a97bff' },   // violet vault
-  { floor:'#11261f', tile:'#173229', wall:'#245244', glow:'#4ad682' },   // verdant hold
-  { floor:'#271518', tile:'#341d21', wall:'#5a3038', glow:'#ff8a5a' },   // ember bay
+  { floorA:'#aee1ff', floorB:'#9cd6fa', wall:'#4a90d9', glow:'#ffd93d' },   // sky deck
+  { floorA:'#e6d2ff', floorB:'#dbc3fb', wall:'#9a6fe0', glow:'#ffd93d' },   // candy vault
+  { floorA:'#c2f2d4', floorB:'#b0eac5', wall:'#4fb877', glow:'#ffd93d' },   // mint hold
+  { floorA:'#ffe3c4', floorB:'#ffd8ad', wall:'#f2954a', glow:'#fff6a8' },   // peach bay
 ];
 const roomTheme = () => ROOM_THEMES[Math.floor((room - 1) / 3) % ROOM_THEMES.length];
 
@@ -320,6 +320,23 @@ function spawnParticles(x, y, color, count) {
     const a = rand(0, TAU), s = rand(40, 190);
     particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: rand(0.3, 0.7), color, r: rand(1.5, 3.5) });
   }
+  // a few spinning stars make every pop feel like a win
+  if (count >= 10) {
+    for (let i = 0; i < 4; i++) {
+      const a = rand(0, TAU), s = rand(60, 150);
+      particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: rand(0.5, 0.9),
+        color: '#ffd93d', r: rand(5, 8), star: true, rot: rand(0, TAU), vr: rand(-8, 8) });
+    }
+  }
+}
+
+function drawStar(x, y, r, rot) {
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const a = rot + i / 10 * TAU, rr = i % 2 ? r * 0.45 : r;
+    ctx[i ? 'lineTo' : 'moveTo'](x + Math.cos(a) * rr, y + Math.sin(a) * rr);
+  }
+  ctx.closePath(); ctx.fill();
 }
 
 // ---------- Update ----------
@@ -544,15 +561,16 @@ function glossDot(r) {              // specular highlight
 // ---------- Render ----------
 function drawRoom() {
   const th = roomTheme();
-  // floor
-  ctx.fillStyle = th.floor; ctx.fillRect(0, 0, WORLD.w, WORLD.h);
-  // tile grid
-  ctx.strokeStyle = th.tile; ctx.lineWidth = 2;
-  for (let gx = PAD; gx <= WORLD.w - PAD; gx += 52) { ctx.beginPath(); ctx.moveTo(gx, PAD); ctx.lineTo(gx, WORLD.h - PAD); ctx.stroke(); }
-  for (let gy = PAD; gy <= WORLD.h - PAD; gy += 52) { ctx.beginPath(); ctx.moveTo(PAD, gy); ctx.lineTo(WORLD.w - PAD, gy); ctx.stroke(); }
-  // soft center light pool
-  const pool = ctx.createRadialGradient(WORLD.w / 2, WORLD.h / 2, 60, WORLD.w / 2, WORLD.h / 2, WORLD.h * 0.62);
-  pool.addColorStop(0, 'rgba(255,255,255,0.05)'); pool.addColorStop(1, 'rgba(0,0,0,0.32)');
+  // cheerful checkerboard floor
+  ctx.fillStyle = th.floorA; ctx.fillRect(0, 0, WORLD.w, WORLD.h);
+  ctx.fillStyle = th.floorB;
+  const T = 52;
+  for (let ty = 0; ty * T < WORLD.h; ty++)
+    for (let tx = 0; tx * T < WORLD.w; tx++)
+      if ((tx + ty) % 2 === 0) ctx.fillRect(tx * T, ty * T, T, T);
+  // soft center light pool (gentle, keeps things bright)
+  const pool = ctx.createRadialGradient(WORLD.w / 2, WORLD.h / 2, 80, WORLD.w / 2, WORLD.h / 2, WORLD.h * 0.7);
+  pool.addColorStop(0, 'rgba(255,255,255,0.10)'); pool.addColorStop(1, 'rgba(43,58,103,0.16)');
   ctx.fillStyle = pool; ctx.fillRect(0, 0, WORLD.w, WORLD.h);
   // walls (top-lit bevel)
   ctx.fillStyle = th.wall;
@@ -622,30 +640,33 @@ function drawMonster(e) {
   ctx.scale(sq, 2 - sq);
   const col = e.flash > 0 ? '#ffffff' : bodyGrad(e.r, e.color);
   const ea = Math.atan2(player.y - e.y, player.x - e.x);
+  // chunky cartoon outline on every body shape drawn below
+  ctx.lineWidth = 3.5; ctx.strokeStyle = tint(e.color, -0.55); ctx.lineJoin = 'round';
   if (e.shape === 'spiky') {
     ctx.fillStyle = col; ctx.beginPath();
     for (let i = 0; i < 10; i++) { const a = i / 10 * TAU, rr = e.r * (i % 2 ? 0.7 : 1.15) * (1 + 0.05 * Math.sin(e.wobble + i)); ctx[i ? 'lineTo' : 'moveTo'](Math.cos(a) * rr, Math.sin(a) * rr); }
-    ctx.closePath(); ctx.fill();
+    ctx.closePath(); ctx.fill(); ctx.stroke();
   } else if (e.shape === 'pulse') {
     const pr = e.r * (1 + 0.12 * Math.sin(e.wobble));
     ctx.globalAlpha = 0.35; ctx.fillStyle = col; ctx.beginPath(); ctx.arc(0, 0, pr + 5, 0, TAU); ctx.fill();
-    ctx.globalAlpha = 1; ctx.beginPath(); ctx.arc(0, 0, pr, 0, TAU); ctx.fill();
+    ctx.globalAlpha = 1; ctx.beginPath(); ctx.arc(0, 0, pr, 0, TAU); ctx.fill(); ctx.stroke();
   } else if (e.shape === 'horned') {
-    ctx.fillStyle = col; ctx.beginPath(); ctx.arc(0, 0, e.r, 0, TAU); ctx.fill();
+    ctx.fillStyle = col;
     ctx.beginPath(); ctx.moveTo(Math.cos(ea) * e.r, Math.sin(ea) * e.r);
     ctx.lineTo(Math.cos(ea - 0.4) * e.r * 1.7, Math.sin(ea - 0.4) * e.r * 1.7);
-    ctx.lineTo(Math.cos(ea - 0.15) * e.r, Math.sin(ea - 0.15) * e.r); ctx.fill();
+    ctx.lineTo(Math.cos(ea - 0.15) * e.r, Math.sin(ea - 0.15) * e.r); ctx.closePath(); ctx.fill(); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(Math.cos(ea) * e.r, Math.sin(ea) * e.r);
     ctx.lineTo(Math.cos(ea + 0.4) * e.r * 1.7, Math.sin(ea + 0.4) * e.r * 1.7);
-    ctx.lineTo(Math.cos(ea + 0.15) * e.r, Math.sin(ea + 0.15) * e.r); ctx.fill();
+    ctx.lineTo(Math.cos(ea + 0.15) * e.r, Math.sin(ea + 0.15) * e.r); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, 0, e.r, 0, TAU); ctx.fill(); ctx.stroke();
   } else if (e.shape === 'wisp') {
     ctx.globalAlpha = 0.3; ctx.fillStyle = col;
     ctx.beginPath(); ctx.arc(-Math.cos(ea) * e.r, -Math.sin(ea) * e.r, e.r * 0.8, 0, TAU); ctx.fill();
-    ctx.globalAlpha = 1; ctx.beginPath(); ctx.arc(0, 0, e.r, 0, TAU); ctx.fill();
+    ctx.globalAlpha = 1; ctx.beginPath(); ctx.arc(0, 0, e.r, 0, TAU); ctx.fill(); ctx.stroke();
   } else if (e.shape === 'maw') {
-    ctx.fillStyle = col; ctx.beginPath(); ctx.arc(0, 0, e.r, 0, TAU); ctx.fill();
+    ctx.fillStyle = col; ctx.beginPath(); ctx.arc(0, 0, e.r, 0, TAU); ctx.fill(); ctx.stroke();
     const gape = 0.5 + 0.25 * Math.sin(e.wobble * 0.5);
-    ctx.fillStyle = '#2a0008'; ctx.beginPath(); ctx.moveTo(0, 0);
+    ctx.fillStyle = '#5a2340'; ctx.beginPath(); ctx.moveTo(0, 0);
     ctx.arc(0, 0, e.r * 0.9, ea - gape, ea + gape); ctx.closePath(); ctx.fill();
   }
   if (e.flash <= 0) glossDot(e.r);   // specular highlight for the 3D look
@@ -660,25 +681,50 @@ function drawMonster(e) {
       ctx.stroke();
     }
   }
-  // eye
-  ctx.fillStyle = '#05060f';
-  ctx.beginPath(); ctx.arc(Math.cos(ea) * e.r * 0.35, Math.sin(ea) * e.r * 0.35, e.r * 0.24, 0, TAU); ctx.fill();
-  ctx.fillStyle = '#ffffff';
-  ctx.beginPath(); ctx.arc(Math.cos(ea) * e.r * 0.42, Math.sin(ea) * e.r * 0.42, e.r * 0.09, 0, TAU); ctx.fill();
+  // big cute cartoon eyes looking at the hero
+  if (e.shape !== 'maw') {
+    for (const side of [-1, 1]) {
+      const ax = Math.cos(ea + side * 0.55) * e.r * 0.42, ay = Math.sin(ea + side * 0.55) * e.r * 0.42;
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.arc(ax, ay, e.r * 0.3, 0, TAU); ctx.fill();
+      ctx.lineWidth = 2; ctx.strokeStyle = tint(e.color, -0.55); ctx.stroke();
+      ctx.fillStyle = '#2b3a67';
+      ctx.beginPath(); ctx.arc(ax + Math.cos(ea) * e.r * 0.1, ay + Math.sin(ea) * e.r * 0.1, e.r * 0.14, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.arc(ax + Math.cos(ea) * e.r * 0.06 - e.r * 0.04, ay + Math.sin(ea) * e.r * 0.06 - e.r * 0.05, e.r * 0.05, 0, TAU); ctx.fill();
+    }
+    // little open mouth
+    ctx.fillStyle = tint(e.color, -0.6);
+    ctx.beginPath(); ctx.ellipse(Math.cos(ea) * e.r * 0.62, Math.sin(ea) * e.r * 0.62, e.r * 0.13, e.r * 0.1, ea, 0, TAU); ctx.fill();
+  } else {
+    // the maw keeps its big goofy eyes above the mouth
+    for (const side of [-1, 1]) {
+      const ax = Math.cos(ea + side * 0.9) * e.r * 0.55, ay = Math.sin(ea + side * 0.9) * e.r * 0.55;
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.arc(ax, ay, e.r * 0.22, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#2b3a67';
+      ctx.beginPath(); ctx.arc(ax + Math.cos(ea) * e.r * 0.07, ay + Math.sin(ea) * e.r * 0.07, e.r * 0.1, 0, TAU); ctx.fill();
+    }
+  }
   ctx.restore();
 
   if (e.boss) {
-    // big boss bar across the top of the arena
-    const bw = WORLD.w - 80, bh = 10, bx = 40, by = 86;
-    ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(bx - 2, by - 2, bw + 4, bh + 4);
-    ctx.fillStyle = e.color; ctx.fillRect(bx, by, bw * clamp(e.hp / e.maxHp, 0, 1), bh);
-    ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 1; ctx.strokeRect(bx - 2, by - 2, bw + 4, bh + 4);
-    ctx.textAlign = 'center'; ctx.font = 'bold 13px system-ui'; ctx.fillStyle = '#eaf2ff';
-    ctx.fillText(e.name, WORLD.w / 2, by - 8);
+    // big rounded boss bar with an outlined name
+    const bw = WORLD.w - 90, bh = 14, bx = 45, by = 92;
+    ctx.fillStyle = '#fffdf5';
+    ctx.beginPath(); ctx.roundRect(bx - 3, by - 3, bw + 6, bh + 6, 10); ctx.fill();
+    ctx.lineWidth = 3; ctx.strokeStyle = '#2b3a67'; ctx.stroke();
+    ctx.fillStyle = e.color;
+    ctx.beginPath(); ctx.roundRect(bx, by, Math.max(8, bw * clamp(e.hp / e.maxHp, 0, 1)), bh, 8); ctx.fill();
+    ctx.textAlign = 'center'; ctx.font = '900 15px "Comic Sans MS","Segoe UI",sans-serif';
+    ctx.lineWidth = 4; ctx.strokeStyle = '#2b3a67'; ctx.strokeText(e.name, WORLD.w / 2, by - 10);
+    ctx.fillStyle = '#ffffff'; ctx.fillText(e.name, WORLD.w / 2, by - 10);
   } else if (e.hp < e.maxHp) {
-    const w = e.r * 2, h = 4;
-    ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(e.x - w / 2, e.y - e.r - 10, w, h);
-    ctx.fillStyle = '#ff6b8a'; ctx.fillRect(e.x - w / 2, e.y - e.r - 10, w * clamp(e.hp / e.maxHp, 0, 1), h);
+    const w = e.r * 2, h = 6;
+    ctx.fillStyle = '#fffdf5';
+    ctx.beginPath(); ctx.roundRect(e.x - w / 2 - 1, e.y - e.r - 13, w + 2, h + 2, 5); ctx.fill();
+    ctx.fillStyle = '#ff4d6d';
+    ctx.beginPath(); ctx.roundRect(e.x - w / 2, e.y - e.r - 12, Math.max(3, w * clamp(e.hp / e.maxHp, 0, 1)), h, 4); ctx.fill();
   }
 }
 
@@ -707,6 +753,7 @@ function drawShip() {   // draws the guardian on foot (name kept for call sites)
   torso.addColorStop(1, tint(player.color, -0.4));
   ctx.fillStyle = torso;
   ctx.beginPath(); ctx.ellipse(0, r * 0.12, r * 0.72, r * 0.62, 0, 0, TAU); ctx.fill();
+  ctx.lineWidth = 3; ctx.lineJoin = 'round'; ctx.strokeStyle = tint(player.color, -0.55); ctx.stroke();
   // chest light
   ctx.fillStyle = 'rgba(255,255,255,.85)';
   ctx.beginPath(); ctx.arc(0, r * 0.08, r * 0.13, 0, TAU); ctx.fill();
@@ -729,6 +776,7 @@ function drawShip() {   // draws the guardian on foot (name kept for call sites)
   helm.addColorStop(1, tint(player.color, -0.42));
   ctx.fillStyle = helm;
   ctx.beginPath(); ctx.arc(0, hy, r * 0.56, 0, TAU); ctx.fill();
+  ctx.lineWidth = 3; ctx.strokeStyle = tint(player.color, -0.55); ctx.stroke();
   // visor faces the aim direction
   const vx = clamp(Math.cos(player.facing), -1, 1) * r * 0.18;
   const visor = ctx.createLinearGradient(0, hy - r * 0.2, 0, hy + r * 0.25);
@@ -766,7 +814,11 @@ function draw() {
     ctx.restore();
   }
 
-  for (const p of particles) { ctx.globalAlpha = clamp(p.life * 2, 0, 1); ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, TAU); ctx.fill(); }
+  for (const p of particles) {
+    ctx.globalAlpha = clamp(p.life * 2, 0, 1); ctx.fillStyle = p.color;
+    if (p.star) { p.rot += 0.1; drawStar(p.x, p.y, p.r, p.rot); }
+    else { ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, TAU); ctx.fill(); }
+  }
   ctx.globalAlpha = 1;
   for (const b of ebullets) { ctx.fillStyle = b.color; ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, TAU); ctx.fill(); ctx.globalAlpha = 0.3; ctx.beginPath(); ctx.arc(b.x, b.y, b.r + 3, 0, TAU); ctx.fill(); ctx.globalAlpha = 1; }
   for (const e of enemies) drawMonster(e);
@@ -792,8 +844,11 @@ function draw() {
   ctx.textAlign = 'center';
   for (const f of floaters) {
     ctx.globalAlpha = clamp(f.t * 1.5, 0, 1);
-    ctx.fillStyle = f.coin ? '#7bffb0' : f.crit ? '#ff5a7a' : '#eaf2ff';
-    ctx.font = 'bold ' + (f.crit ? 20 : 15) + 'px system-ui';
+    const size = f.crit ? 24 : 17;
+    ctx.font = '900 ' + size + 'px "Comic Sans MS","Segoe UI",sans-serif';
+    ctx.lineWidth = 5; ctx.lineJoin = 'round'; ctx.strokeStyle = '#2b3a67';
+    ctx.strokeText(f.txt, f.x, f.y);
+    ctx.fillStyle = f.coin ? '#ffd93d' : f.crit ? '#ff5a7a' : '#ffffff';
     ctx.fillText(f.txt, f.x, f.y);
   }
   ctx.globalAlpha = 1;
