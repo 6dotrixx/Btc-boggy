@@ -80,8 +80,53 @@ function moveVector() {
 }
 
 // ---------- Game state ----------
-const State = { START: 0, HEROES: 1, PLAY: 2, UPGRADE: 3, OVER: 4 };
+const State = { START: 0, HEROES: 1, PLAY: 2, UPGRADE: 3, OVER: 4, PAUSE: 5 };
 let state = State.START;
+
+// ---------- Persistent save (best run, settings) ----------
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('ng_' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('ng_' + k, JSON.stringify(v)); } catch (e) {} },
+};
+let bestRoom = store.get('best', 0);
+
+// ---------- Sound (synthesized — no audio files) ----------
+const SFX = (() => {
+  let actx = null;
+  let on = store.get('sound', true);
+  function ac() {
+    if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state === 'suspended') actx.resume();
+    return actx;
+  }
+  // one tiny synth: pitch, duration, wave, volume, pitch slide
+  function blip(freq, dur, type, vol, slide) {
+    if (!on) return;
+    try {
+      const a = ac(), o = a.createOscillator(), g = a.createGain();
+      o.type = type || 'square'; o.frequency.setValueAtTime(freq, a.currentTime);
+      if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, freq + slide), a.currentTime + dur);
+      g.gain.setValueAtTime(vol || 0.12, a.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, a.currentTime + dur);
+      o.connect(g); g.connect(a.destination);
+      o.start(); o.stop(a.currentTime + dur);
+    } catch (e) { /* audio unavailable — play silently */ }
+  }
+  return {
+    get on() { return on; },
+    toggle() { on = !on; store.set('sound', on); return on; },
+    shoot() { blip(760, 0.07, 'square', 0.05, -320); },
+    hit()   { blip(220, 0.08, 'sawtooth', 0.07, -70); },
+    pop()   { blip(460, 0.16, 'triangle', 0.14, 320); },
+    hurt()  { blip(150, 0.22, 'sawtooth', 0.16, -70); },
+    gate()  { blip(520, 0.35, 'sine', 0.14, 520); },
+    pick()  { blip(700, 0.12, 'sine', 0.13, 260); setTimeout(() => blip(1050, 0.18, 'sine', 0.13, 150), 90); },
+    boss()  { blip(95, 0.5, 'sawtooth', 0.2, -35); setTimeout(() => blip(75, 0.6, 'sawtooth', 0.2, -25), 250); },
+    die()   { blip(320, 0.3, 'sawtooth', 0.18, -180); setTimeout(() => blip(180, 0.5, 'sawtooth', 0.16, -120), 200); },
+    win()   { blip(620, 0.12, 'triangle', 0.15, 0); setTimeout(() => blip(780, 0.12, 'triangle', 0.15, 0), 110); setTimeout(() => blip(1040, 0.22, 'triangle', 0.15, 0), 220); },
+    click() { blip(640, 0.05, 'square', 0.08, 0); },
+  };
+})();
 
 // ---------- Guardian roster (original heroes) ----------
 // Portrait art (generated). Falls back to the emoji icon if a URL fails to load.
@@ -174,6 +219,7 @@ function spawnBoss(n) {
     flash: 0, wobble: rand(0, TAU),
   });
   floaters.push({ x: WORLD.w / 2, y: 260, txt: def.name + ' AWAKENS', t: 1.8, crit: true, vy: -10 });
+  SFX.boss();
 }
 
 // ---------- Upgrade pool (space-weapon names) ----------
@@ -273,6 +319,7 @@ function fire() {
     });
   }
   spawnParticles(player.x + Math.cos(baseAng) * player.r, player.y + Math.sin(baseAng) * player.r, w.color, 3);
+  SFX.shoot();
 }
 
 function nearestEnemy() {
@@ -291,6 +338,7 @@ function damageEnemy(e, dmg, isCrit) {
   e.hp -= dmg; e.flash = 0.12;
   floaters.push({ x: e.x, y: e.y - e.r, txt: Math.round(dmg), t: 0.6, crit: isCrit, vy: -40 });
   if (player.lifesteal) heal(dmg * player.lifesteal);
+  SFX.hit();
   if (e.hp <= 0) killEnemy(e);
 }
 
@@ -298,7 +346,8 @@ function killEnemy(e) {
   const idx = enemies.indexOf(e); if (idx >= 0) enemies.splice(idx, 1);
   spawnParticles(e.x, e.y, e.color, e.boss ? 40 : 14);
   const gain = e.boss ? 25 : ENEMY_TYPES[e.kind].score;
-  if (e.boss) floaters.push({ x: e.x, y: e.y - 40, txt: e.name + ' DOWN', t: 1.6, crit: true, vy: -12 });
+  if (e.boss) { floaters.push({ x: e.x, y: e.y - 40, txt: e.name + ' DOWN', t: 1.6, crit: true, vy: -12 }); SFX.win(); }
+  else SFX.pop();
   coins += gain;
   floaters.push({ x: e.x, y: e.y, txt: '+' + gain, t: 0.8, coin: true, vy: -30 });
   xp += gain;
@@ -312,6 +361,7 @@ function hurtPlayer(v) {
   if (player.inv > 0) return;
   player.hp -= v; player.inv = 0.6; shake = 0.3;
   spawnParticles(player.x, player.y, '#ff5a7a', 8);
+  SFX.hurt();
   if (player.hp <= 0) { player.hp = 0; gameOver(); }
 }
 
@@ -372,6 +422,7 @@ function update(dt) {
     roomActive = false;
     portal = { x: WORLD.w / 2, y: PAD + 34, r: 34, t: 0 };
     floaters.push({ x: WORLD.w / 2, y: 170, txt: 'GATE OPEN — WALK IN', t: 2.0, coin: true, vy: -8 });
+    SFX.gate();
   }
   if (portal) {
     portal.t += dt;
@@ -863,8 +914,36 @@ function updateHUD() {
 }
 
 // ---------- Screens ----------
-function show(id) { ['start', 'heroes', 'upgrade', 'over'].forEach(s => el(s).classList.toggle('hidden', s !== id)); }
-function hideAllOverlays() { ['start', 'heroes', 'upgrade', 'over'].forEach(s => el(s).classList.add('hidden')); }
+const SCREENS = ['start', 'heroes', 'upgrade', 'over', 'pause'];
+function show(id) { SCREENS.forEach(s => el(s).classList.toggle('hidden', s !== id)); }
+function hideAllOverlays() { SCREENS.forEach(s => el(s).classList.add('hidden')); }
+
+function updateBestLine() {
+  const b = el('bestline');
+  if (bestRoom >= 2) { b.textContent = '🏆 Best: Room ' + bestRoom; b.classList.remove('hidden'); }
+  else b.classList.add('hidden');
+}
+
+// ---------- Pause ----------
+function pauseGame() {
+  if (state !== State.PLAY) return;
+  state = State.PAUSE;
+  el('sndBtn').textContent = SFX.on ? '🔊 SOUND: ON' : '🔇 SOUND: OFF';
+  show('pause');
+}
+function resumeGame() {
+  if (state !== State.PAUSE) return;
+  hideAllOverlays();
+  last = now();          // don't advance the sim for the time spent paused
+  state = State.PLAY;
+}
+function quitToMenu() {
+  hideAllOverlays();
+  el('hud').classList.add('hidden'); el('joyhint').classList.add('hidden');
+  state = State.START;
+  updateBestLine();
+  show('start');
+}
 
 function openHeroes() {
   state = State.HEROES;
@@ -880,7 +959,7 @@ function openHeroes() {
     c.innerHTML = `<div class="portrait" style="background:${h.color}18;border-color:${h.color}55">${portrait}</div>
       <div class="hn" style="color:${h.color}">${h.name}</div>
       <div class="hr">${h.role}</div><div class="hp">${h.perk}</div>`;
-    c.onclick = () => startGame(h);
+    c.onclick = () => { SFX.click(); startGame(h); };
     wrap.appendChild(c);
   }
   show('heroes');
@@ -918,7 +997,7 @@ function openUpgrades() {
     c.className = 'card' + (u.isWeapon ? ' weapon-card' : '');
     c.innerHTML = `<div class="ico">${u.ico}</div><div class="name">${u.name}</div>
       <div class="desc">${u.desc}</div><div class="rar" style="color:${RAR_COLOR[u.rar]}">${u.isWeapon ? 'new weapon' : u.rar}</div>`;
-    c.onclick = () => { u.apply(player); heal(player.maxHp * 0.15); nextRoom(); };
+    c.onclick = () => { SFX.pick(); u.apply(player); heal(player.maxHp * 0.15); nextRoom(); };
     wrap.appendChild(c);
   }
   show('upgrade');
@@ -934,14 +1013,33 @@ function nextRoom() {
 function gameOver() {
   portal = null;
   state = State.OVER;
+  SFX.die();
+  const isBest = room > bestRoom;
+  if (isBest) { bestRoom = room; store.set('best', bestRoom); }
   el('overStats').innerHTML =
-    `<b>${heroDef.name}</b> reached <b>Sector ${room}</b> · Rank ${level}<br>Salvaged <b>${coins}</b> crystals from the drift.`;
+    (isBest && room >= 2 ? `<b style="color:#f5a623">🌟 NEW BEST! 🌟</b><br>` : '') +
+    `<b>${heroDef.name}</b> made it to <b>Room ${room}</b> · Level ${level}<br>Collected <b>${coins}</b> gems! ` +
+    (bestRoom >= 2 ? `<br>🏆 Best ever: Room ${bestRoom}` : '');
   el('hud').classList.add('hidden'); el('joyhint').classList.add('hidden');
   show('over');
 }
 
-el('startBtn').onclick = openHeroes;
-el('againBtn').onclick = openHeroes;
+el('startBtn').onclick = () => { SFX.click(); openHeroes(); };
+el('againBtn').onclick = () => { SFX.click(); openHeroes(); };
+el('pauseBtn').onclick = () => { SFX.click(); pauseGame(); };
+el('resumeBtn').onclick = () => { SFX.click(); resumeGame(); };
+el('quitBtn').onclick = () => { SFX.click(); quitToMenu(); };
+el('sndBtn').onclick = () => {
+  const on = SFX.toggle(); SFX.click();
+  el('sndBtn').textContent = on ? '🔊 SOUND: ON' : '🔇 SOUND: OFF';
+};
+window.addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  if (k === 'escape' || k === 'p') {
+    if (state === State.PLAY) pauseGame();
+    else if (state === State.PAUSE) resumeGame();
+  }
+});
 
 // ---------- Main loop ----------
 function loop() {
@@ -982,6 +1080,7 @@ requestAnimationFrame(loop);
   function finish() {
     if (done) return; done = true;
     clearInterval(tipTimer);
+    updateBestLine();
     boot.classList.add('fadeout');
     el('start').classList.remove('hidden');
     setTimeout(() => boot.remove(), 600);
