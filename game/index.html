@@ -50,18 +50,30 @@
     border:1px solid var(--g700); background:var(--g800); padding:7px 18px; border-radius:4px; margin-bottom:18px; }
 
   /* ============ Ranger roster ============ */
-  #heroes .roster { display:flex; gap:14px; flex-wrap:wrap; justify-content:center; margin:6px 0 20px; max-width:720px; }
-  .hero { width:158px; background:var(--g800); border:1px solid var(--g700); border-radius:8px; padding:10px;
-    cursor:pointer; transition:transform .12s, border-color .12s, box-shadow .12s; }
+  #heroes .roster { display:grid; grid-template-columns:repeat(2, minmax(170px, 215px)); gap:14px;
+    justify-content:center; margin:6px 0 20px; width:100%; max-width:470px; }
+  .hero { background:var(--g800); border:1px solid var(--g700); border-radius:10px; padding:12px;
+    cursor:pointer; text-align:left; transition:transform .12s, border-color .12s, box-shadow .12s; }
   .hero:hover { transform:translateY(-4px); border-color:var(--hc,var(--v500)); box-shadow:0 0 26px rgba(145,132,217,.25); }
   .hero:active { transform:scale(.97); }
-  .hero .portrait { width:100%; aspect-ratio:4/5; margin-bottom:10px; border-radius:5px; overflow:hidden;
-    border:1px solid var(--g700); display:flex; align-items:center; justify-content:center; background:#000; }
+  .hero .portrait { width:100%; aspect-ratio:4/5; margin-bottom:10px; border-radius:6px; overflow:hidden;
+    border:1px solid var(--g700); display:flex; align-items:center; justify-content:center; background:#000; position:relative; }
+  .hero .portrait::after { content:''; position:absolute; inset:0;
+    background:linear-gradient(180deg, transparent 62%, rgba(0,0,0,.55)); pointer-events:none; }
   .hero .portrait .art { width:100%; height:100%; object-fit:cover; display:block; }
-  .hero .av { width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:44px; }
-  .hero .hn { font-weight:800; font-size:15px; letter-spacing:1px; }
-  .hero .hr { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:2px; color:var(--v300); margin:3px 0 7px; }
-  .hero .hp { font-size:12px; font-weight:500; color:var(--g300); line-height:1.4; }
+  .hero .av { width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:52px; }
+  .hero .hn { font-weight:800; font-size:15px; letter-spacing:.5px; }
+  .hero .hr { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:2.5px; color:var(--v300); margin:3px 0 6px; }
+  .hero .hp { font-size:11.5px; font-weight:500; color:var(--g300); line-height:1.4; min-height:32px; }
+  .hero .stats { margin-top:9px; display:flex; flex-direction:column; gap:4px; }
+  .hero .st { display:flex; align-items:center; gap:8px; }
+  .hero .st span { font-size:9px; font-weight:800; letter-spacing:1.5px; color:var(--g300); width:32px; }
+  .hero .sb { flex:1; height:6px; background:var(--g900); border-radius:2px; overflow:hidden; }
+  .hero .sb i { display:block; height:100%; border-radius:2px;
+    background:linear-gradient(90deg,var(--v500),var(--v300)); }
+  .hero .deploy { margin-top:10px; text-align:center; font-size:10px; font-weight:800; letter-spacing:3px;
+    color:var(--hc,var(--v300)); border:1px solid var(--g700); border-radius:4px; padding:6px 0; }
+  .hero:hover .deploy { background:var(--hc,var(--v500)); color:#0b0c14; border-color:var(--hc,var(--v500)); }
 
   /* ============ Ability cards ============ */
   #upgrade .cards { display:flex; gap:14px; flex-wrap:wrap; justify-content:center; margin-top:8px; }

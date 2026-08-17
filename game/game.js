@@ -210,6 +210,23 @@ const ENEMY_TYPES = {
 };
 
 // ---------- Bosses (every 5th sector) ----------
+// real enemy art — transparent sprite per machine class (procedural fallback below)
+const ENEMY_SPRITES = {
+  drone:  ART + 'hf_20260817_035251_776f056d-551b-4697-a1df-854ba27d8f92.png',
+  gunner: ART + 'hf_20260817_035301_a61af40e-7dff-4b34-9a6c-f774720723ea.png',
+  walker: ART + 'hf_20260817_035312_53e8d14d-9ec3-42b5-8932-ea7520cc0438.png',
+  probe:  ART + 'hf_20260817_035323_e538b9f5-e273-48a7-9a32-1e73737bba84.png',
+  tank:   ART + 'hf_20260817_035333_a44bf84e-0a74-4ced-8a32-f0ad15739115.png',
+};
+const enemySpriteCache = {};
+function enemySpriteImg(shape) {
+  const src = ENEMY_SPRITES[shape];
+  if (!src) return null;
+  let s = enemySpriteCache[shape];
+  if (!s) { s = new Image(); s.crossOrigin = 'anonymous'; s.src = src; enemySpriteCache[shape] = s; }
+  return (s.complete && s.naturalWidth > 0) ? s : null;
+}
+
 const BOSS_TYPES = [
   { name:'SIEGE COLOSSUS', color:'#e0719b', shape:'tank',   r:36 },
   { name:'HIVE CARRIER',   color:'#9184d9', shape:'drone',  r:34 },
@@ -769,6 +786,38 @@ function drawBackground() {
 
 function drawMonster(e) {
   softShadow(e.x, e.y, e.r);
+
+  // real machine art when loaded — rotates toward the ranger where it makes sense
+  const img = enemySpriteImg(e.shape);
+  if (img) {
+    const ea0 = Math.atan2(player.y - e.y, player.x - e.x);
+    ctx.save(); ctx.translate(e.x, e.y + Math.sin(e.wobble) * 1.5);
+    if (e.shape === 'walker' || e.shape === 'tank' || e.shape === 'gunner') ctx.rotate(ea0 + Math.PI / 2);
+    else ctx.rotate(Math.sin(e.wobble * 0.5) * 0.1);
+    const S = e.r * 3.1;
+    ctx.drawImage(img, -S / 2, -S / 2, S, S);
+    if (e.flash > 0) {   // hit flash overlay
+      ctx.globalAlpha = 0.6; ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.arc(0, 0, e.r * 1.1, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+    // command antennae for bosses
+    if (e.boss) {
+      ctx.save(); ctx.translate(e.x, e.y);
+      ctx.strokeStyle = 'rgba(181,171,252,.9)'; ctx.lineWidth = 3;
+      for (let i = 0; i < 5; i++) {
+        const a = -Math.PI / 2 + (i - 2) * 0.32;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(a) * (e.r + 2), Math.sin(a) * (e.r + 2));
+        ctx.lineTo(Math.cos(a) * (e.r + 12 + (i % 2 ? 0 : 5)), Math.sin(a) * (e.r + 12 + (i % 2 ? 0 : 5)));
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+    drawMonsterBars(e);
+    return;
+  }
+
   ctx.save(); ctx.translate(e.x, e.y);
   // squash & stretch breathing for a soft, animated feel
   const sq = 1 + 0.06 * Math.sin(e.wobble);
@@ -842,24 +891,27 @@ function drawMonster(e) {
     }
   }
   ctx.restore();
+  drawMonsterBars(e);
+}
 
+function drawMonsterBars(e) {
   if (e.boss) {
-    // big rounded boss bar with an outlined name
-    const bw = WORLD.w - 90, bh = 14, bx = 45, by = 92;
-    ctx.fillStyle = '#fffdf5';
-    ctx.beginPath(); ctx.roundRect(bx - 3, by - 3, bw + 6, bh + 6, 10); ctx.fill();
-    ctx.lineWidth = 3; ctx.strokeStyle = '#2b3a67'; ctx.stroke();
+    // boss bar in the bible palette with the machine's name
+    const bw = WORLD.w - 90, bh = 12, bx = 45, by = 92;
+    ctx.fillStyle = '#16171f';
+    ctx.beginPath(); ctx.roundRect(bx - 3, by - 3, bw + 6, bh + 6, 5); ctx.fill();
+    ctx.lineWidth = 2; ctx.strokeStyle = '#3f424d'; ctx.stroke();
     ctx.fillStyle = e.color;
-    ctx.beginPath(); ctx.roundRect(bx, by, Math.max(8, bw * clamp(e.hp / e.maxHp, 0, 1)), bh, 8); ctx.fill();
-    ctx.textAlign = 'center'; ctx.font = '900 15px "Comic Sans MS","Segoe UI",sans-serif';
-    ctx.lineWidth = 4; ctx.strokeStyle = '#2b3a67'; ctx.strokeText(e.name, WORLD.w / 2, by - 10);
-    ctx.fillStyle = '#ffffff'; ctx.fillText(e.name, WORLD.w / 2, by - 10);
+    ctx.beginPath(); ctx.roundRect(bx, by, Math.max(8, bw * clamp(e.hp / e.maxHp, 0, 1)), bh, 4); ctx.fill();
+    ctx.textAlign = 'center'; ctx.font = '800 14px "Segoe UI",system-ui,sans-serif';
+    ctx.lineWidth = 4; ctx.strokeStyle = '#000000'; ctx.strokeText(e.name, WORLD.w / 2, by - 10);
+    ctx.fillStyle = '#e8e9f2'; ctx.fillText(e.name, WORLD.w / 2, by - 10);
   } else if (e.hp < e.maxHp) {
-    const w = e.r * 2, h = 6;
-    ctx.fillStyle = '#fffdf5';
-    ctx.beginPath(); ctx.roundRect(e.x - w / 2 - 1, e.y - e.r - 13, w + 2, h + 2, 5); ctx.fill();
-    ctx.fillStyle = '#ff4d6d';
-    ctx.beginPath(); ctx.roundRect(e.x - w / 2, e.y - e.r - 12, Math.max(3, w * clamp(e.hp / e.maxHp, 0, 1)), h, 4); ctx.fill();
+    const w = e.r * 2, h = 5;
+    ctx.fillStyle = '#16171f';
+    ctx.beginPath(); ctx.roundRect(e.x - w / 2 - 1, e.y - e.r - 13, w + 2, h + 2, 3); ctx.fill();
+    ctx.fillStyle = '#e0719b';
+    ctx.beginPath(); ctx.roundRect(e.x - w / 2, e.y - e.r - 12, Math.max(3, w * clamp(e.hp / e.maxHp, 0, 1)), h, 2); ctx.fill();
   }
 }
 
@@ -886,8 +938,8 @@ function drawShip() {   // draws the ranger (name kept for call sites)
     ctx.save(); ctx.translate(player.x, player.y + bob * 0.5);
     if (player.inv > 0 && Math.floor(player.inv * 20) % 2 === 0) ctx.globalAlpha = 0.4;
     if (facingLeft) ctx.scale(-1, 1);
-    const H = r * 3.4, W = H * (img.naturalWidth / img.naturalHeight);
-    ctx.drawImage(img, -W / 2, -H * 0.64, W, H);
+    const H = r * 4.4, W = H * (img.naturalWidth / img.naturalHeight);   // reads clearly on phones
+    ctx.drawImage(img, -W / 2, -H * 0.66, W, H);
     ctx.restore();
     return;
   }
@@ -1078,9 +1130,19 @@ function openHeroes() {
       ? `<img class="art" src="${h.art}" alt="${h.name}" loading="lazy"
            onerror="this.parentNode.innerHTML='&lt;div class=&quot;av&quot;&gt;${h.ico}&lt;/div&gt;'">`
       : `<div class="av">${h.ico}</div>`;
-    c.innerHTML = `<div class="portrait" style="background:${h.color}18;border-color:${h.color}55">${portrait}</div>
+    // normalized stat bars so rangers compare at a glance
+    const b = h.base;
+    const stats = [
+      ['HP',  b.maxHp / 170],
+      ['DMG', (b.dmg * (b.multishot || 1)) / 18],
+      ['RATE', 0.44 / b.fireRate],
+      ['SPD', b.speed / 240],
+    ].map(([k, v]) => `<div class="st"><span>${k}</span><div class="sb"><i style="width:${Math.round(clamp(v, 0.15, 1) * 100)}%"></i></div></div>`).join('');
+    c.innerHTML = `<div class="portrait" style="border-color:${h.color}66">${portrait}</div>
       <div class="hn" style="color:${h.color}">${h.name}</div>
-      <div class="hr">${h.role}</div><div class="hp">${h.perk}</div>`;
+      <div class="hr">${h.role}</div><div class="hp">${h.perk}</div>
+      <div class="stats">${stats}</div>
+      <div class="deploy">TAP TO DEPLOY</div>`;
     c.onclick = () => { SFX.click(); startGame(h); };
     wrap.appendChild(c);
   }
@@ -1186,7 +1248,7 @@ requestAnimationFrame(loop);
   // phase 1: studio splash card, then fade through to the game loading screen
   const splash = el('splash');
   setTimeout(() => { splash.classList.add('fadeout'); setTimeout(() => splash.remove(), 500); }, 2300);
-  const assets = HEROES.flatMap(h => [h.art, h.sprite]).filter(Boolean);
+  const assets = HEROES.flatMap(h => [h.art, h.sprite]).concat(Object.values(ENEMY_SPRITES)).filter(Boolean);
   const MIN_MS = 4200, MAX_MS = 8000;      // covers splash + load phases; never hangs offline
   const t0 = performance.now();
   let loaded = 0, tipIdx = 0, done = false;

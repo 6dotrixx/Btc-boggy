@@ -128,3 +128,10 @@ Enemy class references (1:1):
 - Ram Walker — `hf_20260817_033856_ba2eed89-0e0f-438a-b802-5fe019407ed8.png`
 - Siege Tank — `hf_20260817_033856_8f44a0b8-b288-4ade-9271-ad70d47a54df.png`
 - Gunship (boss) — `hf_20260817_033856_07b70c00-1edb-4db4-af16-0d6e854697a6.png`
+
+Enemy gameplay sprites (transparent cutouts, wired in-game):
+- Scout Drone — `hf_20260817_035251_776f056d-551b-4697-a1df-854ba27d8f92.png`
+- Gunner Drone — `hf_20260817_035301_a61af40e-7dff-4b34-9a6c-f774720723ea.png`
+- Ram Walker — `hf_20260817_035312_53e8d14d-9ec3-42b5-8932-ea7520cc0438.png`
+- Orbit Probe — `hf_20260817_035323_e538b9f5-e273-48a7-9a32-1e73737bba84.png`
+- Siege Tank — `hf_20260817_035333_a44bf84e-0a74-4ced-8a32-f0ad15739115.png`
