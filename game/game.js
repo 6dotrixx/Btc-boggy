@@ -1061,8 +1061,11 @@ requestAnimationFrame(loop);
     'Tip: watch out for the charging Ramhorn!',
   ];
   const boot = el('boot'), fill = el('loadfill'), pct = el('loadpct'), tip = el('boottip');
+  // phase 1: studio splash card, then fade through to the game loading screen
+  const splash = el('splash');
+  setTimeout(() => { splash.classList.add('fadeout'); setTimeout(() => splash.remove(), 500); }, 2300);
   const assets = HEROES.map(h => h.art).filter(Boolean);
-  const MIN_MS = 2600, MAX_MS = 6000;      // always show the intro; never hang on slow networks
+  const MIN_MS = 4200, MAX_MS = 8000;      // covers splash + load phases; never hangs offline
   const t0 = performance.now();
   let loaded = 0, tipIdx = 0, done = false;
 
