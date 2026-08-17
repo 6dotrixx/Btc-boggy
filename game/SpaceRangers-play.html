@@ -721,6 +721,18 @@ function update(dt) {
     player.facing = Math.atan2(mv.y, mv.x);
     player.thrust = Math.min(1, player.thrust + dt * 5);
     player.walkT = (player.walkT || 0) + dt * 13;   // run cycle
+    // footfall: each stride kicks up a little deck dust
+    const stepSign = Math.sign(Math.sin(player.walkT));
+    if (stepSign !== player._stepSign) {
+      player._stepSign = stepSign;
+      if (player.thrust > 0.4) {
+        for (let i = 0; i < 2; i++) {
+          particles.push({ x: player.x + rand(-5, 5), y: player.y + player.r * 0.85,
+            vx: rand(-20, 20) - mv.x * 45, vy: rand(-14, -4) - mv.y * 20,
+            life: rand(0.22, 0.38), color: '#9397ab', r: rand(1.5, 3) });
+        }
+      }
+    }
   } else {
     player.thrust = Math.max(0, player.thrust - dt * 5);
   }
@@ -1054,8 +1066,11 @@ function drawMonster(e) {
   const img = enemySpriteImg(e.shape);
   if (img) {
     const ea0 = Math.atan2(player.y - e.y, player.x - e.x);
-    ctx.save(); ctx.translate(e.x, e.y + Math.sin(e.wobble) * 1.5);
-    if (e.shape === 'walker' || e.shape === 'tank' || e.shape === 'gunner') ctx.rotate(ea0 + Math.PI / 2);
+    // walkers stomp (hop + gait rock); hover units drift by design
+    const dy = e.shape === 'walker' ? -Math.abs(Math.sin(e.wobble * 2)) * 2.5 : Math.sin(e.wobble) * 1.5;
+    ctx.save(); ctx.translate(e.x, e.y + dy);
+    if (e.shape === 'walker') ctx.rotate(ea0 + Math.PI / 2 + Math.sin(e.wobble * 2) * 0.07);
+    else if (e.shape === 'tank' || e.shape === 'gunner') ctx.rotate(ea0 + Math.PI / 2);
     else ctx.rotate(Math.sin(e.wobble * 0.5) * 0.1);
     const S = e.r * 3.1;
     ctx.drawImage(img, -S / 2, -S / 2, S, S);
@@ -1194,13 +1209,19 @@ function drawShip() {   // draws the ranger (name kept for call sites)
   const bob = run * step * 2;                       // body bounce while running
   const facingLeft = Math.cos(player.facing) < 0;
 
-  // real character art when available
+  // real character art when available — with a proper walk cycle so steps read
   const img = heroSpriteImg();
   if (img) {
-    softShadow(player.x, player.y + 4, r);
-    ctx.save(); ctx.translate(player.x, player.y + bob * 0.5);
+    softShadow(player.x, player.y + 4, r);                    // shadow stays grounded
+    const wt = player.walkT || 0;
+    const hop = run * Math.abs(Math.sin(wt)) * 5;             // lift on each stride
+    const tilt = run * Math.sin(wt) * 0.09;                   // lean into the step
+    const squash = 1 - run * 0.05 * Math.abs(Math.cos(wt));   // contact squash at footfall
+    ctx.save(); ctx.translate(player.x, player.y - hop);
     if (player.inv > 0 && Math.floor(player.inv * 20) % 2 === 0) ctx.globalAlpha = 0.4;
     if (facingLeft) ctx.scale(-1, 1);
+    ctx.rotate(tilt);
+    ctx.scale(1 + (1 - squash) * 0.6, squash);
     const H = r * 4.4, W = H * (img.naturalWidth / img.naturalHeight);   // reads clearly on phones
     ctx.drawImage(img, -W / 2, -H * 0.66, W, H);
     ctx.restore();
