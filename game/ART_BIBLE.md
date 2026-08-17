@@ -103,3 +103,28 @@ silhouette — only violet rim, engine glow, landing lights.
 ✅ Visual, color, lighting language established
 ✅ Character hierarchy + ranger roster started
 ✅ Vehicle language established
+✅ Ranger busts + gameplay sprites generated and wired in-game
+✅ Enemy class reference art generated (scout drone, ram walker, siege tank, gunship)
+
+## Asset registry (generated to this bible)
+
+CDN prefix: `https://d8j0ntlcm91z4.cloudfront.net/user_3F047Iq9Ue5VPXNvJsfVjZtSn7t/`
+(Bundle local copies under `assets/` before store submission.)
+
+Ranger busts (4:5):
+- Rook — `hf_20260817_032932_91071b76-594b-4136-9370-2d054600aaa3.png`
+- Imo Tal — `hf_20260817_032932_21d7c78a-7d58-49d4-9365-9319f75a636d.png`
+- Cass Duro — `hf_20260817_032932_c970f9d2-2cbe-4975-9c00-84244bd4f8e9.png`
+- NIX-9 — `hf_20260817_032932_d51e819e-72b9-431b-a770-03a06c561392.png`
+
+Ranger gameplay sprites (transparent cutouts):
+- Rook — `hf_20260817_034346_120731a2-edbb-45ab-8da9-05890f9847d6.png`
+- Imo Tal — `hf_20260817_034259_1bfe381c-9d05-4bbb-b789-40af02ed36ed.png`
+- Cass Duro — `hf_20260817_034308_1afc5bc0-1f95-4b64-b989-899ff10bb8e3.png`
+- NIX-9 — `hf_20260817_034317_a1a501a1-2d8c-4b04-b05e-d6cfeb740655.png`
+
+Enemy class references (1:1):
+- Scout Drone — `hf_20260817_033856_aab0452a-5a4a-4d48-ad03-4a2d89087af7.png`
+- Ram Walker — `hf_20260817_033856_ba2eed89-0e0f-438a-b802-5fe019407ed8.png`
+- Siege Tank — `hf_20260817_033856_8f44a0b8-b288-4ade-9271-ad70d47a54df.png`
+- Gunship (boss) — `hf_20260817_033856_07b70c00-1edb-4db4-af16-0d6e854697a6.png`

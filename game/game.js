@@ -135,15 +135,19 @@ const ART = 'https://d8j0ntlcm91z4.cloudfront.net/user_3F047Iq9Ue5VPXNvJsfVjZtSn
 const HEROES = [
   { id:'rook', ico:'⚔️', name:'Vega "Rook" Ansari', role:'Breacher', color:'#9397ab', perk:'Scatter rifle — brutal up close',
     art: ART + 'hf_20260817_032932_91071b76-594b-4136-9370-2d054600aaa3.png',
+    sprite: ART + 'hf_20260817_034346_120731a2-edbb-45ab-8da9-05890f9847d6.png',
     base:{ fireRate:0.68, dmg:12, maxHp:130, speed:195, weapon:'scatter' } },
   { id:'imo',  ico:'🎯', name:'Imo Tal',            role:'Marksman', color:'#b5abfc', perk:'Rail rifle — one slug, three kills',
     art: ART + 'hf_20260817_032932_21d7c78a-7d58-49d4-9365-9319f75a636d.png',
+    sprite: ART + 'hf_20260817_034259_1bfe381c-9d05-4bbb-b789-40af02ed36ed.png',
     base:{ fireRate:0.85, dmg:18, maxHp:95,  speed:205, weapon:'rail' } },
   { id:'cass', ico:'🛡️', name:'Cass Duro',          role:'Bulwark',  color:'#7d8299', perk:'Shield discs — immovable, unstoppable',
     art: ART + 'hf_20260817_032932_c970f9d2-2cbe-4975-9c00-84244bd4f8e9.png',
+    sprite: ART + 'hf_20260817_034308_1afc5bc0-1f95-4b64-b989-899ff10bb8e3.png',
     base:{ fireRate:0.80, dmg:11, maxHp:170, speed:165, weapon:'disc' } },
   { id:'nix',  ico:'👁️', name:'NIX-9',              role:'Synthetic', color:'#9184d9', perk:'Nova orbs — eerie, relentless',
     art: ART + 'hf_20260817_032932_d51e819e-72b9-431b-a770-03a06c561392.png',
+    sprite: ART + 'hf_20260817_034317_a1a501a1-2d8c-4b04-b05e-d6cfeb740655.png',
     base:{ fireRate:0.60, dmg:10, maxHp:100, speed:225, weapon:'nova' } },
 ];
 
@@ -196,20 +200,20 @@ const ROOM_THEMES = [
 const roomTheme = () => ROOM_THEMES[Math.floor((room - 1) / 3) % ROOM_THEMES.length];
 
 // ---------- Space-monster archetypes (original) ----------
-// hostile drones — violet/grey family per the art bible
+// hostile machines — bible designs: drones, walkers, tanks in grey/violet
 const ENEMY_TYPES = {
-  voidling: { r:13, hp:22, speed:60,  color:'#8b7bd9', touch:12, score:1, ai:'chase',  shape:'spiky' },
-  glowspit: { r:15, hp:32, speed:32,  color:'#a795ff', touch:10, score:2, ai:'ranged', shape:'pulse', fireEvery:1.8, projSpeed:210 },
-  ramhorn:  { r:17, hp:46, speed:42,  color:'#6b7089', touch:18, score:2, ai:'charge', shape:'horned' },
-  starwisp: { r:12, hp:26, speed:95,  color:'#cfc8ff', touch:10, score:2, ai:'orbit',  shape:'wisp', fireEvery:2.4, projSpeed:180 },
-  devourer: { r:26, hp:150, speed:34, color:'#e0719b', touch:26, score:5, ai:'chase',  shape:'maw' },
+  voidling: { r:13, hp:22, speed:60,  color:'#8b7bd9', touch:12, score:1, ai:'chase',  shape:'drone',  label:'SCOUT DRONE' },
+  glowspit: { r:15, hp:32, speed:32,  color:'#a795ff', touch:10, score:2, ai:'ranged', shape:'gunner', label:'GUNNER DRONE', fireEvery:1.8, projSpeed:210 },
+  ramhorn:  { r:17, hp:46, speed:42,  color:'#6b7089', touch:18, score:2, ai:'charge', shape:'walker', label:'RAM WALKER' },
+  starwisp: { r:12, hp:26, speed:95,  color:'#cfc8ff', touch:10, score:2, ai:'orbit',  shape:'probe',  label:'ORBIT PROBE', fireEvery:2.4, projSpeed:180 },
+  devourer: { r:26, hp:150, speed:34, color:'#e0719b', touch:26, score:5, ai:'chase',  shape:'tank',   label:'SIEGE TANK' },
 };
 
 // ---------- Bosses (every 5th sector) ----------
 const BOSS_TYPES = [
-  { name:'RIFTMAW SOVEREIGN', color:'#e0719b', shape:'maw',    r:36 },
-  { name:'VOID TYRANT',       color:'#9184d9', shape:'spiky',  r:34 },
-  { name:'STAR DEVOURER',     color:'#b5abfc', shape:'horned', r:36 },
+  { name:'SIEGE COLOSSUS', color:'#e0719b', shape:'tank',   r:36 },
+  { name:'HIVE CARRIER',   color:'#9184d9', shape:'drone',  r:34 },
+  { name:'WAR STRIDER',    color:'#b5abfc', shape:'walker', r:36 },
 ];
 
 function spawnBoss(n) {
@@ -587,8 +591,8 @@ function updateEnemies(dt) {
     }
     e.x = clamp(e.x, PAD + e.r * 0.6, WORLD.w - PAD - e.r * 0.6);
     e.y = clamp(e.y, PAD + e.r * 0.6, WORLD.h - PAD - e.r * 0.6);
-    // walkers get stopped by furniture; drifting wisps float over pools
-    for (const o of obstacles) if (o.type === 'crate' || e.shape !== 'wisp') pushOutOfRect(e, o, e.r * 0.7);
+    // ground units get stopped by furniture; hovering probes float over pools
+    for (const o of obstacles) if (o.type === 'crate' || e.shape !== 'probe') pushOutOfRect(e, o, e.r * 0.7);
     const rr = e.r + player.r;
     if (dist2(e, player) <= rr * rr) hurtPlayer(e.touch);
   }
@@ -773,68 +777,68 @@ function drawMonster(e) {
   const ea = Math.atan2(player.y - e.y, player.x - e.x);
   // chunky cartoon outline on every body shape drawn below
   ctx.lineWidth = 3.5; ctx.strokeStyle = tint(e.color, -0.55); ctx.lineJoin = 'round';
-  if (e.shape === 'spiky') {
+  const VIOLET = '#b5abfc';
+  if (e.shape === 'drone') {
+    // hexagonal scout drone, slow spin, single sensor eye
+    ctx.save(); ctx.rotate(e.wobble * 0.25);
     ctx.fillStyle = col; ctx.beginPath();
-    for (let i = 0; i < 10; i++) { const a = i / 10 * TAU, rr = e.r * (i % 2 ? 0.7 : 1.15) * (1 + 0.05 * Math.sin(e.wobble + i)); ctx[i ? 'lineTo' : 'moveTo'](Math.cos(a) * rr, Math.sin(a) * rr); }
+    for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; ctx[i ? 'lineTo' : 'moveTo'](Math.cos(a) * e.r, Math.sin(a) * e.r); }
     ctx.closePath(); ctx.fill(); ctx.stroke();
-  } else if (e.shape === 'pulse') {
-    const pr = e.r * (1 + 0.12 * Math.sin(e.wobble));
-    ctx.globalAlpha = 0.35; ctx.fillStyle = col; ctx.beginPath(); ctx.arc(0, 0, pr + 5, 0, TAU); ctx.fill();
-    ctx.globalAlpha = 1; ctx.beginPath(); ctx.arc(0, 0, pr, 0, TAU); ctx.fill(); ctx.stroke();
-  } else if (e.shape === 'horned') {
-    ctx.fillStyle = col;
-    ctx.beginPath(); ctx.moveTo(Math.cos(ea) * e.r, Math.sin(ea) * e.r);
-    ctx.lineTo(Math.cos(ea - 0.4) * e.r * 1.7, Math.sin(ea - 0.4) * e.r * 1.7);
-    ctx.lineTo(Math.cos(ea - 0.15) * e.r, Math.sin(ea - 0.15) * e.r); ctx.closePath(); ctx.fill(); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(Math.cos(ea) * e.r, Math.sin(ea) * e.r);
-    ctx.lineTo(Math.cos(ea + 0.4) * e.r * 1.7, Math.sin(ea + 0.4) * e.r * 1.7);
-    ctx.lineTo(Math.cos(ea + 0.15) * e.r, Math.sin(ea + 0.15) * e.r); ctx.closePath(); ctx.fill(); ctx.stroke();
-    ctx.beginPath(); ctx.arc(0, 0, e.r, 0, TAU); ctx.fill(); ctx.stroke();
-  } else if (e.shape === 'wisp') {
-    ctx.globalAlpha = 0.3; ctx.fillStyle = col;
-    ctx.beginPath(); ctx.arc(-Math.cos(ea) * e.r, -Math.sin(ea) * e.r, e.r * 0.8, 0, TAU); ctx.fill();
-    ctx.globalAlpha = 1; ctx.beginPath(); ctx.arc(0, 0, e.r, 0, TAU); ctx.fill(); ctx.stroke();
-  } else if (e.shape === 'maw') {
+    ctx.restore();
+    ctx.globalAlpha = 0.35; ctx.fillStyle = VIOLET;
+    ctx.beginPath(); ctx.arc(0, 0, e.r * 0.45, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;
+    ctx.fillStyle = VIOLET; ctx.beginPath(); ctx.arc(0, 0, e.r * 0.22 * (1 + 0.15 * Math.sin(e.wobble * 2)), 0, TAU); ctx.fill();
+  } else if (e.shape === 'gunner') {
+    // round gunner drone with a cannon tracking the ranger
+    ctx.save(); ctx.rotate(ea);
+    ctx.fillStyle = tint(e.color, -0.35);
+    ctx.fillRect(e.r * 0.4, -e.r * 0.16, e.r * 0.95, e.r * 0.32);            // cannon
+    ctx.fillStyle = VIOLET; ctx.fillRect(e.r * 1.2, -e.r * 0.1, e.r * 0.18, e.r * 0.2);  // muzzle light
+    ctx.restore();
     ctx.fillStyle = col; ctx.beginPath(); ctx.arc(0, 0, e.r, 0, TAU); ctx.fill(); ctx.stroke();
-    const gape = 0.5 + 0.25 * Math.sin(e.wobble * 0.5);
-    ctx.fillStyle = '#5a2340'; ctx.beginPath(); ctx.moveTo(0, 0);
-    ctx.arc(0, 0, e.r * 0.9, ea - gape, ea + gape); ctx.closePath(); ctx.fill();
+    const pr = 1 + 0.15 * Math.sin(e.wobble);
+    ctx.globalAlpha = 0.85; ctx.fillStyle = VIOLET;
+    ctx.beginPath(); ctx.arc(0, 0, e.r * 0.3 * pr, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;
+  } else if (e.shape === 'walker') {
+    // wedge-shaped ram walker aimed at the ranger
+    ctx.save(); ctx.rotate(ea);
+    ctx.fillStyle = col; ctx.beginPath();
+    ctx.moveTo(e.r * 1.1, 0); ctx.lineTo(-e.r * 0.7, e.r * 0.85);
+    ctx.lineTo(-e.r * 0.25, 0); ctx.lineTo(-e.r * 0.7, -e.r * 0.85);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = VIOLET; ctx.fillRect(e.r * 0.25, -e.r * 0.3, e.r * 0.2, e.r * 0.6);   // visor slit
+    ctx.restore();
+  } else if (e.shape === 'probe') {
+    // hovering ring probe with an orbiting light
+    ctx.lineWidth = 3.5; ctx.strokeStyle = e.flash > 0 ? '#ffffff' : e.color;
+    ctx.beginPath(); ctx.arc(0, 0, e.r, 0, TAU); ctx.stroke();
+    ctx.fillStyle = col; ctx.beginPath(); ctx.arc(0, 0, e.r * 0.42, 0, TAU); ctx.fill();
+    ctx.lineWidth = 2; ctx.strokeStyle = tint(e.color, -0.55); ctx.stroke();
+    const oa = e.wobble * 1.4;
+    ctx.fillStyle = VIOLET; ctx.beginPath(); ctx.arc(Math.cos(oa) * e.r, Math.sin(oa) * e.r, 3.5, 0, TAU); ctx.fill();
+  } else if (e.shape === 'tank') {
+    // slab-armored siege tank oriented at the ranger
+    ctx.save(); ctx.rotate(ea);
+    ctx.fillStyle = tint(e.color, -0.45);
+    ctx.beginPath(); ctx.roundRect(-e.r, -e.r * 0.85, e.r * 2, e.r * 0.3, 5); ctx.fill();   // treads
+    ctx.beginPath(); ctx.roundRect(-e.r, e.r * 0.55, e.r * 2, e.r * 0.3, 5); ctx.fill();
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.roundRect(-e.r, -e.r * 0.62, e.r * 2, e.r * 1.24, e.r * 0.2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = tint(e.color, 0.15);
+    ctx.beginPath(); ctx.roundRect(-e.r * 0.45, -e.r * 0.38, e.r * 1.0, e.r * 0.76, e.r * 0.12); ctx.fill();
+    ctx.fillStyle = VIOLET; ctx.fillRect(e.r * 0.62, -e.r * 0.2, e.r * 0.22, e.r * 0.4);   // visor slit
+    ctx.restore();
   }
-  if (e.flash <= 0) glossDot(e.r);   // specular highlight for the 3D look
-  // crown for bosses
+  if (e.flash <= 0) glossDot(e.r);   // subtle machine sheen
+  // command antennae for bosses (violet, per palette)
   if (e.boss) {
-    ctx.strokeStyle = 'rgba(255,209,90,.9)'; ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(181,171,252,.9)'; ctx.lineWidth = 3;
     for (let i = 0; i < 5; i++) {
       const a = -Math.PI / 2 + (i - 2) * 0.32;
       ctx.beginPath();
       ctx.moveTo(Math.cos(a) * (e.r + 2), Math.sin(a) * (e.r + 2));
       ctx.lineTo(Math.cos(a) * (e.r + 12 + (i % 2 ? 0 : 5)), Math.sin(a) * (e.r + 12 + (i % 2 ? 0 : 5)));
       ctx.stroke();
-    }
-  }
-  // big cute cartoon eyes looking at the hero
-  if (e.shape !== 'maw') {
-    for (const side of [-1, 1]) {
-      const ax = Math.cos(ea + side * 0.55) * e.r * 0.42, ay = Math.sin(ea + side * 0.55) * e.r * 0.42;
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath(); ctx.arc(ax, ay, e.r * 0.3, 0, TAU); ctx.fill();
-      ctx.lineWidth = 2; ctx.strokeStyle = tint(e.color, -0.55); ctx.stroke();
-      ctx.fillStyle = '#2b3a67';
-      ctx.beginPath(); ctx.arc(ax + Math.cos(ea) * e.r * 0.1, ay + Math.sin(ea) * e.r * 0.1, e.r * 0.14, 0, TAU); ctx.fill();
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath(); ctx.arc(ax + Math.cos(ea) * e.r * 0.06 - e.r * 0.04, ay + Math.sin(ea) * e.r * 0.06 - e.r * 0.05, e.r * 0.05, 0, TAU); ctx.fill();
-    }
-    // little open mouth
-    ctx.fillStyle = tint(e.color, -0.6);
-    ctx.beginPath(); ctx.ellipse(Math.cos(ea) * e.r * 0.62, Math.sin(ea) * e.r * 0.62, e.r * 0.13, e.r * 0.1, ea, 0, TAU); ctx.fill();
-  } else {
-    // the maw keeps its big goofy eyes above the mouth
-    for (const side of [-1, 1]) {
-      const ax = Math.cos(ea + side * 0.9) * e.r * 0.55, ay = Math.sin(ea + side * 0.9) * e.r * 0.55;
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath(); ctx.arc(ax, ay, e.r * 0.22, 0, TAU); ctx.fill();
-      ctx.fillStyle = '#2b3a67';
-      ctx.beginPath(); ctx.arc(ax + Math.cos(ea) * e.r * 0.07, ay + Math.sin(ea) * e.r * 0.07, e.r * 0.1, 0, TAU); ctx.fill();
     }
   }
   ctx.restore();
@@ -859,16 +863,38 @@ function drawMonster(e) {
   }
 }
 
-function drawShip() {   // draws the guardian on foot (name kept for call sites)
-  const r = player.r;
-  softShadow(player.x, player.y + 4, r);
-  ctx.save(); ctx.translate(player.x, player.y);
-  if (player.inv > 0 && Math.floor(player.inv * 20) % 2 === 0) ctx.globalAlpha = 0.4;
+// in-game character art: the ranger's gameplay sprite, cached per hero
+const spriteCache = {};
+function heroSpriteImg() {
+  if (!heroDef || !heroDef.sprite) return null;
+  let s = spriteCache[heroDef.id];
+  if (!s) { s = new Image(); s.crossOrigin = 'anonymous'; s.src = heroDef.sprite; spriteCache[heroDef.id] = s; }
+  return (s.complete && s.naturalWidth > 0) ? s : null;
+}
 
+function drawShip() {   // draws the ranger (name kept for call sites)
+  const r = player.r;
   const run = player.thrust;                        // 0 idle → 1 sprinting
   const step = Math.sin(player.walkT || 0);
   const bob = run * step * 2;                       // body bounce while running
   const facingLeft = Math.cos(player.facing) < 0;
+
+  // real character art when available
+  const img = heroSpriteImg();
+  if (img) {
+    softShadow(player.x, player.y + 4, r);
+    ctx.save(); ctx.translate(player.x, player.y + bob * 0.5);
+    if (player.inv > 0 && Math.floor(player.inv * 20) % 2 === 0) ctx.globalAlpha = 0.4;
+    if (facingLeft) ctx.scale(-1, 1);
+    const H = r * 3.4, W = H * (img.naturalWidth / img.naturalHeight);
+    ctx.drawImage(img, -W / 2, -H * 0.64, W, H);
+    ctx.restore();
+    return;
+  }
+
+  softShadow(player.x, player.y + 4, r);
+  ctx.save(); ctx.translate(player.x, player.y);
+  if (player.inv > 0 && Math.floor(player.inv * 20) % 2 === 0) ctx.globalAlpha = 0.4;
 
   // legs — alternating stubby boots
   ctx.fillStyle = tint(player.color, -0.5);
@@ -1160,7 +1186,7 @@ requestAnimationFrame(loop);
   // phase 1: studio splash card, then fade through to the game loading screen
   const splash = el('splash');
   setTimeout(() => { splash.classList.add('fadeout'); setTimeout(() => splash.remove(), 500); }, 2300);
-  const assets = HEROES.map(h => h.art).filter(Boolean);
+  const assets = HEROES.flatMap(h => [h.art, h.sprite]).filter(Boolean);
   const MIN_MS = 4200, MAX_MS = 8000;      // covers splash + load phases; never hangs offline
   const t0 = performance.now();
   let loaded = 0, tipIdx = 0, done = false;
