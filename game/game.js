@@ -1051,6 +1051,21 @@ function draw() {
     }
   }
   drawShip();
+
+  // HP floats above the ranger — number over a slim bar
+  if (state === State.PLAY || state === State.PAUSE) {
+    const bw = 52, bh = 7, bx = player.x - bw / 2, by = player.y - player.r * 3.15;
+    ctx.fillStyle = '#16171f';
+    ctx.beginPath(); ctx.roundRect(bx - 1, by - 1, bw + 2, bh + 2, 3); ctx.fill();
+    const pct = clamp(player.hp / player.maxHp, 0, 1);
+    ctx.fillStyle = pct > 0.35 ? '#b5abfc' : '#e0719b';
+    ctx.beginPath(); ctx.roundRect(bx, by, Math.max(2, bw * pct), bh, 2); ctx.fill();
+    ctx.textAlign = 'center'; ctx.font = '800 11px "Segoe UI",system-ui,sans-serif';
+    ctx.lineWidth = 3; ctx.strokeStyle = '#000000';
+    ctx.strokeText(Math.ceil(player.hp), player.x, by - 4);
+    ctx.fillStyle = '#e8e9f2'; ctx.fillText(Math.ceil(player.hp), player.x, by - 4);
+  }
+
   // on-screen joystick while dragging
   if (drag.active && state === State.PLAY) {
     const rect = canvas.getBoundingClientRect();
@@ -1081,10 +1096,18 @@ function draw() {
 // ---------- HUD ----------
 const el = id => document.getElementById(id);
 function updateHUD() {
-  el('hpbar').style.width = clamp(player.hp / player.maxHp * 100, 0, 100) + '%';
   el('coins').textContent = coins; el('room').textContent = room; el('level').textContent = level;
   el('xpbar').style.width = clamp(xp / xpNext * 100, 0, 100) + '%';
   const wp = el('weapon'); if (wp) wp.textContent = player.weapon.ico + ' ' + player.weapon.name;
+}
+
+// the collected-abilities column running down the left edge
+function renderAbilities() {
+  const wrap = el('abilities'); if (!wrap) return;
+  const picks = player.picks || [];
+  const shown = picks.slice(0, 8);
+  wrap.innerHTML = shown.map(i => `<div class="ab">${i}</div>`).join('') +
+    (picks.length > 8 ? `<div class="ab more">+${picks.length - 8}</div>` : '');
 }
 
 // ---------- Screens ----------
@@ -1152,6 +1175,7 @@ function openHeroes() {
 function startGame(h) {
   portal = null; warpFx = 0;
   heroDef = h; initPlayerFromHero(h);
+  player.picks = []; renderAbilities();
   bullets = []; ebullets = []; enemies = []; particles = []; floaters = [];
   coins = 0; room = 1; level = 1; xp = 0; xpNext = 3;
   hideAllOverlays();
@@ -1181,7 +1205,11 @@ function openUpgrades() {
     c.className = 'card' + (u.isWeapon ? ' weapon-card' : '');
     c.innerHTML = `<div class="name">${u.name}</div><div class="ico">${u.ico}</div>
       <div class="desc">${u.desc}</div><div class="rar" style="color:${RAR_COLOR[u.rar]}">${u.isWeapon ? 'new weapon' : u.rar}</div>`;
-    c.onclick = () => { SFX.pick(); u.apply(player); heal(player.maxHp * 0.15); nextRoom(); };
+    c.onclick = () => {
+      SFX.pick(); u.apply(player); heal(player.maxHp * 0.15);
+      if (!u.isWeapon) { (player.picks = player.picks || []).push(u.ico); renderAbilities(); }
+      nextRoom();
+    };
     wrap.appendChild(c);
   }
   show('upgrade');

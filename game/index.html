@@ -91,22 +91,29 @@
     margin-top:12px; padding:3px 12px; border-radius:3px; border:1px solid var(--g700); }
 
   /* ============ HUD ============ */
-  #hud { position:absolute; top:0; left:0; right:0; padding:10px 14px; z-index:5; pointer-events:none;
+  /* HUD layout: pause top-left, level strip top-center, currency top-right,
+     collected abilities down the left edge, HP floats over the ranger in-world */
+  #hud { position:absolute; top:0; left:0; right:0; padding:10px 12px; z-index:5; pointer-events:none;
     display:flex; justify-content:space-between; align-items:flex-start; font-size:13px; font-weight:700; }
-  #hud .left, #hud .right { display:flex; flex-direction:column; gap:6px; }
-  #hud .right { align-items:flex-end; }
-  #hud .center { position:absolute; left:50%; transform:translateX(-50%); top:118px;
+  #hud .right { display:flex; flex-direction:column; gap:6px; align-items:flex-end; }
+  #hud .center { position:absolute; left:50%; transform:translateX(-50%); top:10px;
     display:flex; flex-direction:column; align-items:center; gap:5px; }
+  #hud .lvrow { display:flex; gap:6px; }
   .pill { display:inline-block; background:rgba(35,37,50,.92); color:var(--txt); border:1px solid var(--g700);
     padding:5px 13px; border-radius:4px; letter-spacing:1px; }
-  .bar { width:min(46vw,210px); height:16px; background:var(--g900); border:1px solid var(--g700); border-radius:3px;
-    overflow:hidden; }
-  .bar > i { display:block; height:100%; background:linear-gradient(180deg,#f0a0c0,var(--danger)); width:100%; transition:width .15s; }
-  .bar.xpbar { width:min(52vw,240px); height:10px; }
-  .bar.xpbar > i { background:linear-gradient(180deg,var(--v300),var(--v500)); width:0%; }
-  #pauseBtn { pointer-events:auto; font-family:inherit; font-size:13px; font-weight:800; letter-spacing:1px; color:var(--txt);
-    background:rgba(35,37,50,.92); border:1px solid var(--g700); border-radius:4px; padding:5px 13px; cursor:pointer; }
+  .bar { background:var(--g900); border:1px solid var(--g700); border-radius:3px; overflow:hidden; }
+  .bar.xpbar { width:min(60vw,270px); height:10px; }
+  .bar.xpbar > i { display:block; height:100%; background:linear-gradient(180deg,var(--v300),var(--v500));
+    width:0%; transition:width .15s; }
+  #pauseBtn { pointer-events:auto; font-family:inherit; font-size:16px; font-weight:800; color:var(--txt);
+    background:rgba(35,37,50,.92); border:1px solid var(--g700); border-radius:6px;
+    width:38px; height:38px; cursor:pointer; }
   #pauseBtn:active { transform:translateY(1px); }
+  #abilities { position:absolute; left:10px; top:120px; display:flex; flex-direction:column; gap:6px; }
+  #abilities .ab { width:34px; height:34px; display:flex; align-items:center; justify-content:center;
+    font-size:17px; background:rgba(35,37,50,.92); border:1px solid var(--v500); border-radius:6px;
+    box-shadow:0 0 10px rgba(145,132,217,.25); }
+  #abilities .ab.more { font-size:11px; font-weight:800; color:var(--v300); }
   .overlay.glass { background:rgba(0,0,0,.82); }
 
   #joyhint { position:absolute; bottom:16px; left:0; right:0; text-align:center; z-index:5; pointer-events:none; }
@@ -161,20 +168,19 @@
   <canvas id="c"></canvas>
 
   <div id="hud" class="hidden">
-    <div class="left">
-      <div class="pill">❤ HP</div>
-      <div class="bar"><i id="hpbar"></i></div>
-      <div class="pill">ROOM <span id="room">1</span></div>
-    </div>
+    <button id="pauseBtn">⏸</button>
     <div class="center">
-      <div class="pill">LV <span id="level">1</span></div>
+      <div class="lvrow">
+        <span class="pill">LV <span id="level">1</span></span>
+        <span class="pill">ROOM <span id="room">1</span></span>
+      </div>
       <div class="bar xpbar"><i id="xpbar"></i></div>
     </div>
     <div class="right">
       <div class="pill">◆ <span id="coins">0</span></div>
       <div class="pill" id="weapon">PLASMA RIFLE</div>
-      <button id="pauseBtn">⏸ PAUSE</button>
     </div>
+    <div id="abilities"></div>
   </div>
 
   <div id="joyhint" class="hidden"><span>DRAG TO MOVE · STAND STILL TO FIRE</span></div>
