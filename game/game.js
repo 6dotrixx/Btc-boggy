@@ -180,6 +180,7 @@ let coins = 0, room = 1, level = 1, xp = 0, xpNext = 3;
 let roomTarget = 0, roomActive = false, spawnTimer = 0, toSpawn = [];
 let portal = null;      // open gate when the room is cleared; walk in to advance
 let warpFx = 0;         // transition flash when entering a new room
+let obstacles = [];     // pools (block walking) and crates (block walking + shots)
 
 // ---------- Room theming (station chambers, palette shifts as you go deeper) ----------
 const PAD = 24;                     // wall thickness — playfield is inset by this
@@ -254,6 +255,20 @@ function pickUpgrades(n) {
 // ---------- Sector / wave generation ----------
 function buildRoom(n) {
   roomActive = true; toSpawn = []; spawnTimer = 0;
+  // furnish the room: pools you walk around, crates that also block shots
+  obstacles = [];
+  if (n % 5 !== 0) {          // boss arenas stay clear
+    const spots = [
+      { x: 110, y: 250 }, { x: WORLD.w - 110, y: 250 },
+      { x: 130, y: 460 }, { x: WORLD.w - 130, y: 460 },
+      { x: WORLD.w / 2, y: 350 }, { x: WORLD.w / 2 - 140, y: 590 }, { x: WORLD.w / 2 + 140, y: 590 },
+    ].sort(() => Math.random() - 0.5);
+    const count = 2 + Math.floor(rand(0, 2));
+    for (let i = 0; i < count; i++) {
+      const s = spots[i];
+      obstacles.push({ x: s.x, y: s.y, w: rand(76, 116), h: rand(52, 72), type: Math.random() < 0.5 ? 'pool' : 'crate' });
+    }
+  }
   if (n % 5 === 0) {          // boss sector
     roomTarget = 1;
     spawnBoss(n);
@@ -320,6 +335,22 @@ function fire() {
   }
   spawnParticles(player.x + Math.cos(baseAng) * player.r, player.y + Math.sin(baseAng) * player.r, w.color, 3);
   SFX.shoot();
+}
+
+// push a circle {x,y} of given radius out of a rect obstacle
+function pushOutOfRect(c, o, radius) {
+  const cx = clamp(c.x, o.x - o.w / 2, o.x + o.w / 2);
+  const cy = clamp(c.y, o.y - o.h / 2, o.y + o.h / 2);
+  const dx = c.x - cx, dy = c.y - cy, d2 = dx * dx + dy * dy;
+  if (d2 >= radius * radius) return false;
+  if (d2 === 0) { c.y = o.y - o.h / 2 - radius; return true; }   // dead center: eject upward
+  const d = Math.sqrt(d2), push = (radius - d) / d;
+  c.x += dx * push; c.y += dy * push;
+  return true;
+}
+
+function pointInRect(x, y, o) {
+  return x > o.x - o.w / 2 && x < o.x + o.w / 2 && y > o.y - o.h / 2 && y < o.y + o.h / 2;
 }
 
 function nearestEnemy() {
@@ -405,6 +436,7 @@ function update(dt) {
   } else {
     player.thrust = Math.max(0, player.thrust - dt * 5);
   }
+  for (const o of obstacles) pushOutOfRect(player, o, player.r * 0.8);
   player.inv = Math.max(0, player.inv - dt);
 
   player.fireCd -= dt;
@@ -464,6 +496,13 @@ function updateBullets(dt) {
     }
 
     b.x += b.vx * dt; b.y += b.vy * dt; b.life -= dt;
+
+    // crates soak up shots
+    let blocked = false;
+    for (const o of obstacles) {
+      if (o.type === 'crate' && pointInRect(b.x, b.y, o)) { spawnParticles(b.x, b.y, '#c9d6f2', 3); bullets.splice(i, 1); blocked = true; break; }
+    }
+    if (blocked) continue;
 
     // wall handling (discs and homing shots pass through; others ricochet or die)
     if (b.behavior === 'straight') {
@@ -544,6 +583,8 @@ function updateEnemies(dt) {
     }
     e.x = clamp(e.x, PAD + e.r * 0.6, WORLD.w - PAD - e.r * 0.6);
     e.y = clamp(e.y, PAD + e.r * 0.6, WORLD.h - PAD - e.r * 0.6);
+    // walkers get stopped by furniture; drifting wisps float over pools
+    for (const o of obstacles) if (o.type === 'crate' || e.shape !== 'wisp') pushOutOfRect(e, o, e.r * 0.7);
     const rr = e.r + player.r;
     if (dist2(e, player) <= rr * rr) hurtPlayer(e.touch);
   }
@@ -562,6 +603,11 @@ function updateEbullets(dt) {
   for (let i = ebullets.length - 1; i >= 0; i--) {
     const b = ebullets[i];
     b.x += b.vx * dt; b.y += b.vy * dt; b.life -= dt;
+    let blocked = false;
+    for (const o of obstacles) {
+      if (o.type === 'crate' && pointInRect(b.x, b.y, o)) { ebullets.splice(i, 1); blocked = true; break; }
+    }
+    if (blocked) continue;
     const rr = b.r + player.r;
     if (dist2(b, player) <= rr * rr) { hurtPlayer(8); ebullets.splice(i, 1); continue; }
     if (b.life <= 0 || b.x < -20 || b.x > WORLD.w + 20 || b.y < -20 || b.y > WORLD.h + 20) ebullets.splice(i, 1);
@@ -651,6 +697,35 @@ function drawRoom() {
     ctx.fillStyle = tint(th.wall, -0.2); ctx.fillRect(gx + 4, 2, gw - 8, PAD - 4);
     ctx.fillStyle = th.glow; ctx.globalAlpha = 0.6;
     ctx.fillRect(gx + gw / 2 - 1, 2, 2, PAD - 4); ctx.globalAlpha = 1;
+  }
+
+  // furniture: pools and crates
+  for (const o of obstacles) {
+    const x = o.x - o.w / 2, y = o.y - o.h / 2;
+    if (o.type === 'pool') {
+      ctx.fillStyle = '#e8913f';
+      ctx.beginPath(); ctx.roundRect(x - 5, y - 5, o.w + 10, o.h + 10, 16); ctx.fill();
+      ctx.fillStyle = '#49c7dd';
+      ctx.beginPath(); ctx.roundRect(x, y, o.w, o.h, 12); ctx.fill();
+      ctx.fillStyle = '#2ba8c4';
+      ctx.beginPath(); ctx.roundRect(x + 8, y + 8, o.w - 16, o.h - 16, 8); ctx.fill();
+      ctx.globalAlpha = 0.5 + 0.3 * Math.sin(starPhase * 2 + o.x);
+      ctx.fillStyle = '#bdeef7';
+      ctx.beginPath(); ctx.ellipse(o.x - o.w * 0.18, o.y - o.h * 0.15, o.w * 0.16, o.h * 0.1, -0.4, 0, TAU); ctx.fill();
+      ctx.globalAlpha = 1;
+    } else {
+      const th = roomTheme();
+      ctx.save(); ctx.globalAlpha = 0.25; ctx.fillStyle = '#000';
+      ctx.beginPath(); ctx.ellipse(o.x, y + o.h + 4, o.w * 0.5, 8, 0, 0, TAU); ctx.fill(); ctx.restore();
+      ctx.fillStyle = tint(th.wall, -0.25);
+      ctx.beginPath(); ctx.roundRect(x, y, o.w, o.h, 10); ctx.fill();
+      ctx.fillStyle = tint(th.wall, 0.15);
+      ctx.beginPath(); ctx.roundRect(x, y, o.w, o.h * 0.42, 10); ctx.fill();
+      ctx.lineWidth = 3; ctx.strokeStyle = tint(th.wall, -0.5);
+      ctx.beginPath(); ctx.roundRect(x, y, o.w, o.h, 10); ctx.stroke();
+      ctx.fillStyle = th.glow; ctx.globalAlpha = 0.8;
+      ctx.fillRect(o.x - o.w * 0.22, o.y - 2, o.w * 0.44, 4); ctx.globalAlpha = 1;
+    }
   }
 
   // warp flash when arriving in a new room
@@ -803,11 +878,11 @@ function drawShip() {   // draws the guardian on foot (name kept for call sites)
   torso.addColorStop(0.55, player.color);
   torso.addColorStop(1, tint(player.color, -0.4));
   ctx.fillStyle = torso;
-  ctx.beginPath(); ctx.ellipse(0, r * 0.12, r * 0.72, r * 0.62, 0, 0, TAU); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(0, r * 0.26, r * 0.6, r * 0.5, 0, 0, TAU); ctx.fill();
   ctx.lineWidth = 3; ctx.lineJoin = 'round'; ctx.strokeStyle = tint(player.color, -0.55); ctx.stroke();
   // chest light
   ctx.fillStyle = 'rgba(255,255,255,.85)';
-  ctx.beginPath(); ctx.arc(0, r * 0.08, r * 0.13, 0, TAU); ctx.fill();
+  ctx.beginPath(); ctx.arc(0, r * 0.2, r * 0.11, 0, TAU); ctx.fill();
 
   // blaster arm — pivots toward the aim direction
   ctx.save(); ctx.rotate(player.facing);
@@ -819,23 +894,24 @@ function drawShip() {   // draws the guardian on foot (name kept for call sites)
   ctx.fillRect(r * 1.2, -r * 0.09, r * 0.2, r * 0.18);                                    // muzzle glow
   ctx.restore();
 
-  // helmet — glossy sphere with a wide visor
-  const hy = -r * 0.62 + bob * 0.4;
-  const helm = ctx.createRadialGradient(-r * 0.25, hy - r * 0.3, 1, 0, hy, r * 0.62);
+  // helmet — oversized chibi head with a wide visor
+  const hy = -r * 0.58 + bob * 0.4;
+  const helm = ctx.createRadialGradient(-r * 0.3, hy - r * 0.4, 1, 0, hy, r * 0.85);
   helm.addColorStop(0, tint(player.color, 0.65));
   helm.addColorStop(0.6, player.color);
   helm.addColorStop(1, tint(player.color, -0.42));
   ctx.fillStyle = helm;
-  ctx.beginPath(); ctx.arc(0, hy, r * 0.56, 0, TAU); ctx.fill();
+  ctx.beginPath(); ctx.arc(0, hy, r * 0.78, 0, TAU); ctx.fill();
   ctx.lineWidth = 3; ctx.strokeStyle = tint(player.color, -0.55); ctx.stroke();
   // visor faces the aim direction
-  const vx = clamp(Math.cos(player.facing), -1, 1) * r * 0.18;
-  const visor = ctx.createLinearGradient(0, hy - r * 0.2, 0, hy + r * 0.25);
+  const vx = clamp(Math.cos(player.facing), -1, 1) * r * 0.22;
+  const visor = ctx.createLinearGradient(0, hy - r * 0.3, 0, hy + r * 0.35);
   visor.addColorStop(0, '#ffffff'); visor.addColorStop(1, '#7fc4ea');
   ctx.fillStyle = visor;
-  ctx.beginPath(); ctx.ellipse(vx, hy + r * 0.03, r * 0.34, r * 0.24, 0, 0, TAU); ctx.fill();
-  ctx.fillStyle = 'rgba(255,255,255,.8)';
-  ctx.beginPath(); ctx.ellipse(vx - r * 0.12, hy - r * 0.05, r * 0.09, r * 0.05, -0.5, 0, TAU); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(vx, hy + r * 0.05, r * 0.48, r * 0.36, 0, 0, TAU); ctx.fill();
+  ctx.lineWidth = 2.5; ctx.strokeStyle = tint(player.color, -0.55); ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,.85)';
+  ctx.beginPath(); ctx.ellipse(vx - r * 0.16, hy - r * 0.08, r * 0.13, r * 0.07, -0.5, 0, TAU); ctx.fill();
   ctx.restore();
 
   ctx.globalAlpha = 1; ctx.restore();
@@ -892,6 +968,20 @@ function draw() {
     }
   }
   drawShip();
+  // on-screen joystick while dragging
+  if (drag.active && state === State.PLAY) {
+    const rect = canvas.getBoundingClientRect();
+    const bx = (drag.sx - rect.left) / scale, by = (drag.sy - rect.top) / scale;
+    ctx.globalAlpha = 0.35;
+    ctx.lineWidth = 5; ctx.strokeStyle = '#ffffff';
+    ctx.beginPath(); ctx.arc(bx, by, 46, 0, TAU); ctx.stroke();
+    ctx.globalAlpha = 0.55; ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.arc(bx + drag.dx / scale * 0.66, by + drag.dy / scale * 0.66, 24, 0, TAU); ctx.fill();
+    ctx.globalAlpha = 0.9; ctx.lineWidth = 3; ctx.strokeStyle = '#2b3a67';
+    ctx.beginPath(); ctx.arc(bx + drag.dx / scale * 0.66, by + drag.dy / scale * 0.66, 24, 0, TAU); ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
   ctx.textAlign = 'center';
   for (const f of floaters) {
     ctx.globalAlpha = clamp(f.t * 1.5, 0, 1);
@@ -910,6 +1000,7 @@ const el = id => document.getElementById(id);
 function updateHUD() {
   el('hpbar').style.width = clamp(player.hp / player.maxHp * 100, 0, 100) + '%';
   el('coins').textContent = coins; el('room').textContent = room; el('level').textContent = level;
+  el('xpbar').style.width = clamp(xp / xpNext * 100, 0, 100) + '%';
   const wp = el('weapon'); if (wp) wp.textContent = player.weapon.ico + ' ' + player.weapon.name;
 }
 
@@ -995,7 +1086,7 @@ function openUpgrades() {
   for (const u of picks) {
     const c = document.createElement('div');
     c.className = 'card' + (u.isWeapon ? ' weapon-card' : '');
-    c.innerHTML = `<div class="ico">${u.ico}</div><div class="name">${u.name}</div>
+    c.innerHTML = `<div class="name">${u.name}</div><div class="ico">${u.ico}</div>
       <div class="desc">${u.desc}</div><div class="rar" style="color:${RAR_COLOR[u.rar]}">${u.isWeapon ? 'new weapon' : u.rar}</div>`;
     c.onclick = () => { SFX.pick(); u.apply(player); heal(player.maxHp * 0.15); nextRoom(); };
     wrap.appendChild(c);
