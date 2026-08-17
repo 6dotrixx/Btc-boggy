@@ -3,170 +3,145 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-<meta name="theme-color" content="#8fd6ff" />
+<meta name="theme-color" content="#000000" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="mobile-web-app-capable" content="yes" />
-<title>Nova Guardians</title>
+<title>Space Rangers</title>
 <style>
   :root {
-    --sky:#8fd6ff; --grape:#c9b6ff; --sun:#ffd93d; --sunDeep:#f5a623;
-    --candy:#ff6fa5; --lime:#7ed957; --aqua:#5ad1ff;
-    --cream:#fffdf5; --ink:#2b3a67; --inkSoft:#5a6a9a;
+    /* production bible palette — greys and violet on black, nothing else */
+    --g900:#16171f; --g800:#232532; --g700:#3f424d; --g300:#9397ab;
+    --v500:#9184d9; --v300:#b5abfc;
+    --txt:#e8e9f2; --danger:#e0719b;
   }
   * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
-  html,body { height:100%; background:#0d1018; overflow:hidden;
-    font-family:'Comic Sans MS','Chalkboard SE','Marker Felt','Segoe UI',system-ui,sans-serif; color:var(--ink); }
+  html,body { height:100%; background:#000; overflow:hidden;
+    font-family:'Segoe UI', system-ui, -apple-system, sans-serif; color:var(--txt); }
   #wrap { position:relative; width:100vw; height:100vh; display:flex; align-items:center; justify-content:center; }
-  canvas { background:#11151f; touch-action:none; display:block; box-shadow:0 0 40px rgba(0,0,0,.5); }
+  canvas { background:#000; touch-action:none; display:block; box-shadow:0 0 60px rgba(145,132,217,.15); }
 
-  /* ============ Bright, bubbly overlay screens ============ */
+  /* ============ Overlay screens — carved out of darkness ============ */
   .overlay { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
-    background:linear-gradient(180deg,var(--sky) 0%,var(--grape) 100%);
+    background:radial-gradient(ellipse at 50% 20%, rgba(145,132,217,.10), transparent 55%), #000;
     text-align:center; padding:24px; z-index:10; overflow-y:auto; }
-  .overlay::before { content:''; position:absolute; inset:0; pointer-events:none; opacity:.55;
-    background:
-      radial-gradient(60px 60px at 12% 18%, rgba(255,255,255,.7) 30%, transparent 62%),
-      radial-gradient(38px 38px at 26% 12%, rgba(255,255,255,.55) 30%, transparent 62%),
-      radial-gradient(80px 80px at 86% 22%, rgba(255,255,255,.55) 30%, transparent 62%),
-      radial-gradient(46px 46px at 74% 9%,  rgba(255,255,255,.5) 30%, transparent 62%),
-      radial-gradient(70px 70px at 8% 84%,  rgba(255,255,255,.4) 30%, transparent 62%),
-      radial-gradient(50px 50px at 92% 80%, rgba(255,255,255,.4) 30%, transparent 62%); }
-  .overlay > * { position:relative; }
   .hidden { display:none !important; }
 
-  h1 { font-size:clamp(34px,7.5vw,64px); font-weight:900; letter-spacing:1px; color:#fff; margin-bottom:8px;
-    text-shadow:
-      -3px -3px 0 var(--ink), 3px -3px 0 var(--ink), -3px 3px 0 var(--ink), 3px 3px 0 var(--ink),
-      -3px 0 0 var(--ink), 3px 0 0 var(--ink), 0 -3px 0 var(--ink), 0 3px 0 var(--ink),
-      0 8px 0 rgba(43,58,103,.35); }
-  .tag { font-size:15px; font-weight:700; color:#fff; background:var(--candy); border:3px solid #fff;
-    padding:6px 20px; border-radius:999px; box-shadow:0 4px 0 rgba(43,58,103,.25); margin-bottom:20px; }
-  .sub { color:var(--ink); font-size:16px; font-weight:600; max-width:440px; line-height:1.5; margin-bottom:22px;
-    background:rgba(255,255,255,.75); border-radius:18px; padding:12px 18px; }
+  h1 { font-size:clamp(32px,7vw,58px); font-weight:800; letter-spacing:6px; color:var(--txt);
+    text-transform:uppercase; margin-bottom:10px;
+    text-shadow:0 0 24px rgba(181,171,252,.45), 0 2px 0 #000; }
+  .tag { font-size:12px; font-weight:700; letter-spacing:5px; text-transform:uppercase; color:var(--v300);
+    border:1px solid var(--g700); background:var(--g800); padding:7px 20px; border-radius:4px; margin-bottom:22px; }
+  .sub { color:var(--g300); font-size:15px; font-weight:500; max-width:440px; line-height:1.6; margin-bottom:24px; }
 
-  .btn { font-family:inherit; background:linear-gradient(180deg,var(--sun),var(--sunDeep)); color:#7a4a00;
-    border:4px solid #fff; font-weight:900; font-size:20px; letter-spacing:1px; padding:16px 46px; border-radius:999px;
-    cursor:pointer; box-shadow:0 7px 0 #c77f00, 0 14px 24px rgba(43,58,103,.25); transition:transform .08s, box-shadow .08s; }
-  .btn:hover { transform:scale(1.05) rotate(-1deg); }
-  .btn:active { transform:translateY(6px); box-shadow:0 1px 0 #c77f00; }
-  .stat-line { margin-top:18px; font-size:14px; font-weight:700; color:#fff;
-    background:rgba(43,58,103,.4); padding:8px 18px; border-radius:999px; }
-  .credit { position:absolute; bottom:10px; font-size:11px; color:rgba(43,58,103,.55); font-weight:700; }
+  .btn { font-family:inherit; background:linear-gradient(180deg,var(--v300),var(--v500)); color:#16122e;
+    border:1px solid var(--v300); font-weight:800; font-size:16px; letter-spacing:3px; text-transform:uppercase;
+    padding:15px 46px; border-radius:6px; cursor:pointer;
+    box-shadow:0 0 26px rgba(145,132,217,.35); transition:transform .08s, box-shadow .12s; }
+  .btn:hover { transform:translateY(-2px); box-shadow:0 0 38px rgba(181,171,252,.5); }
+  .btn:active { transform:translateY(1px); box-shadow:0 0 12px rgba(145,132,217,.3); }
+  .btn.alt { background:var(--g800); color:var(--txt); border:1px solid var(--g700); box-shadow:none; }
+  .btn.alt:hover { border-color:var(--v500); }
+  .btn.small { font-size:14px; padding:12px 34px; }
+  .menu-col { display:flex; flex-direction:column; gap:12px; align-items:center; }
+  .stat-line { margin-top:20px; font-size:12px; font-weight:600; letter-spacing:2px; color:var(--g300); }
+  .credit { position:absolute; bottom:10px; font-size:10px; letter-spacing:2px; color:var(--g700); }
+  #bestline { font-size:13px; font-weight:700; letter-spacing:2px; color:var(--v300);
+    border:1px solid var(--g700); background:var(--g800); padding:7px 18px; border-radius:4px; margin-bottom:18px; }
 
-  /* ============ Hero roster ============ */
-  #heroes .roster { display:flex; gap:16px; flex-wrap:wrap; justify-content:center; margin:6px 0 20px; max-width:720px; }
-  .hero { width:158px; background:var(--cream); border:4px solid var(--hc,var(--aqua)); border-radius:24px; padding:12px;
-    cursor:pointer; box-shadow:0 6px 0 rgba(43,58,103,.2); transition:transform .12s; }
-  .hero:hover { transform:translateY(-6px) rotate(-2deg) scale(1.04); }
-  .hero:active { transform:translateY(0) scale(.97); }
-  .hero .portrait { width:100%; aspect-ratio:3/4; margin-bottom:10px; border-radius:16px; overflow:hidden;
-    border:3px solid var(--hc,var(--aqua)); display:flex; align-items:center; justify-content:center; background:#eaf4ff; }
+  /* ============ Ranger roster ============ */
+  #heroes .roster { display:flex; gap:14px; flex-wrap:wrap; justify-content:center; margin:6px 0 20px; max-width:720px; }
+  .hero { width:158px; background:var(--g800); border:1px solid var(--g700); border-radius:8px; padding:10px;
+    cursor:pointer; transition:transform .12s, border-color .12s, box-shadow .12s; }
+  .hero:hover { transform:translateY(-4px); border-color:var(--hc,var(--v500)); box-shadow:0 0 26px rgba(145,132,217,.25); }
+  .hero:active { transform:scale(.97); }
+  .hero .portrait { width:100%; aspect-ratio:4/5; margin-bottom:10px; border-radius:5px; overflow:hidden;
+    border:1px solid var(--g700); display:flex; align-items:center; justify-content:center; background:#000; }
   .hero .portrait .art { width:100%; height:100%; object-fit:cover; display:block; }
-  .hero .av { width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:46px; }
-  .hero .hn { font-weight:900; font-size:16px; }
-  .hero .hr { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:1px; color:var(--inkSoft); margin:2px 0 6px; }
-  .hero .hp { font-size:12px; font-weight:600; color:var(--ink); line-height:1.35; }
+  .hero .av { width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:44px; }
+  .hero .hn { font-weight:800; font-size:15px; letter-spacing:1px; }
+  .hero .hr { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:2px; color:var(--v300); margin:3px 0 7px; }
+  .hero .hp { font-size:12px; font-weight:500; color:var(--g300); line-height:1.4; }
 
-  /* ============ Power cards ============ */
-  #upgrade .cards { display:flex; gap:16px; flex-wrap:wrap; justify-content:center; margin-top:8px; }
-  .card { width:180px; background:var(--cream); border:4px solid #e8b06a; border-radius:18px 18px 6px 6px;
-    padding:0 0 26px; cursor:pointer; overflow:visible; position:relative;
-    clip-path:polygon(0 0, 100% 0, 100% calc(100% - 22px), 50% 100%, 0 calc(100% - 22px));
-    filter:drop-shadow(0 6px 0 rgba(43,58,103,.2)); transition:transform .12s; }
-  .card:hover { transform:translateY(-6px) rotate(2deg) scale(1.05); }
-  .card:active { transform:translateY(0) scale(.96); }
-  .card.weapon-card { border-color:var(--sun); background:linear-gradient(180deg,#fff8dd,var(--cream)); }
-  .card .name { font-weight:900; font-size:16px; color:#fff; padding:10px 8px;
-    background:linear-gradient(180deg,#ffb340,#f5920b); border-radius:12px 12px 0 0;
-    text-shadow:-2px 0 0 #a35c00, 2px 0 0 #a35c00, 0 -2px 0 #a35c00, 0 2px 0 #a35c00; }
-  .card .ico { font-size:46px; margin:14px 0 4px; filter:drop-shadow(0 3px 0 rgba(43,58,103,.2)); }
-  .card .desc { font-size:13px; font-weight:600; color:var(--inkSoft); line-height:1.4; padding:4px 14px 0; }
-  .card .rar { display:inline-block; font-size:11px; font-weight:900; text-transform:uppercase; letter-spacing:1px;
-    margin-top:10px; padding:3px 12px; border-radius:999px; background:rgba(43,58,103,.08); }
+  /* ============ Ability cards ============ */
+  #upgrade .cards { display:flex; gap:14px; flex-wrap:wrap; justify-content:center; margin-top:8px; }
+  .card { width:180px; background:var(--g800); border:1px solid var(--g700); border-radius:8px;
+    padding:0 0 20px; cursor:pointer; overflow:hidden; transition:transform .12s, border-color .12s, box-shadow .12s; }
+  .card:hover { transform:translateY(-4px); border-color:var(--v500); box-shadow:0 0 26px rgba(145,132,217,.25); }
+  .card:active { transform:scale(.97); }
+  .card.weapon-card { border-color:var(--v500); }
+  .card .name { font-weight:800; font-size:14px; letter-spacing:1px; color:#16122e; padding:10px 8px;
+    background:linear-gradient(180deg,var(--v300),var(--v500)); text-transform:uppercase; }
+  .card.weapon-card .name { background:linear-gradient(180deg,#d3ccff,var(--v300)); }
+  .card .ico { font-size:42px; margin:16px 0 6px; filter:grayscale(.25) drop-shadow(0 0 12px rgba(181,171,252,.35)); }
+  .card .desc { font-size:13px; font-weight:500; color:var(--g300); line-height:1.45; padding:4px 14px 0; }
+  .card .rar { display:inline-block; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:2px;
+    margin-top:12px; padding:3px 12px; border-radius:3px; border:1px solid var(--g700); }
 
   /* ============ HUD ============ */
   #hud { position:absolute; top:0; left:0; right:0; padding:10px 14px; z-index:5; pointer-events:none;
-    display:flex; justify-content:space-between; align-items:flex-start; font-size:14px; font-weight:900; }
+    display:flex; justify-content:space-between; align-items:flex-start; font-size:13px; font-weight:700; }
   #hud .left, #hud .right { display:flex; flex-direction:column; gap:6px; }
   #hud .right { align-items:flex-end; }
   #hud .center { position:absolute; left:50%; transform:translateX(-50%); top:118px;
     display:flex; flex-direction:column; align-items:center; gap:5px; }
-  .bar.xpbar { width:min(52vw,240px); height:13px; }
-  .bar.xpbar > i { background:linear-gradient(180deg,#ffe9a3,#f5a623); width:0%; }
-  .pill { display:inline-block; background:var(--cream); color:var(--ink); border:3px solid #fff;
-    padding:5px 14px; border-radius:999px; box-shadow:0 3px 0 rgba(43,58,103,.25); }
-  .bar { width:min(46vw,210px); height:20px; background:#fff; border:3px solid #fff; border-radius:999px;
-    overflow:hidden; box-shadow:0 3px 0 rgba(43,58,103,.25), inset 0 2px 4px rgba(43,58,103,.18); }
-  .bar > i { display:block; height:100%; background:linear-gradient(180deg,#ff8fb0,#ff4d6d); width:100%;
-    border-radius:999px; transition:width .15s; }
-  #pauseBtn { pointer-events:auto; font-family:inherit; font-size:16px; font-weight:900; color:var(--ink);
-    background:var(--cream); border:3px solid #fff; border-radius:999px; padding:5px 14px; cursor:pointer;
-    box-shadow:0 3px 0 rgba(43,58,103,.25); }
-  #pauseBtn:active { transform:translateY(2px); box-shadow:0 1px 0 rgba(43,58,103,.25); }
-
-  /* translucent pause screen — the room stays visible behind it */
-  .overlay.glass { background:rgba(143,214,255,.78); }
-  .overlay.glass::before { opacity:.3; }
-  .menu-col { display:flex; flex-direction:column; gap:14px; align-items:center; }
-  .btn.small { font-size:16px; padding:12px 34px; }
-  .btn.alt { background:linear-gradient(180deg,#8fe0ff,#4a9be8); color:#083a66;
-    box-shadow:0 7px 0 #2f6cae, 0 14px 24px rgba(43,58,103,.25); }
-  .btn.alt:active { box-shadow:0 1px 0 #2f6cae; }
-  #bestline { font-size:15px; font-weight:900; color:#7a4a00; background:linear-gradient(180deg,#ffe9a3,#ffd93d);
-    border:3px solid #fff; padding:7px 20px; border-radius:999px; box-shadow:0 4px 0 rgba(43,58,103,.22); margin-bottom:16px; }
+  .pill { display:inline-block; background:rgba(35,37,50,.92); color:var(--txt); border:1px solid var(--g700);
+    padding:5px 13px; border-radius:4px; letter-spacing:1px; }
+  .bar { width:min(46vw,210px); height:16px; background:var(--g900); border:1px solid var(--g700); border-radius:3px;
+    overflow:hidden; }
+  .bar > i { display:block; height:100%; background:linear-gradient(180deg,#f0a0c0,var(--danger)); width:100%; transition:width .15s; }
+  .bar.xpbar { width:min(52vw,240px); height:10px; }
+  .bar.xpbar > i { background:linear-gradient(180deg,var(--v300),var(--v500)); width:0%; }
+  #pauseBtn { pointer-events:auto; font-family:inherit; font-size:13px; font-weight:800; letter-spacing:1px; color:var(--txt);
+    background:rgba(35,37,50,.92); border:1px solid var(--g700); border-radius:4px; padding:5px 13px; cursor:pointer; }
+  #pauseBtn:active { transform:translateY(1px); }
+  .overlay.glass { background:rgba(0,0,0,.82); }
 
   #joyhint { position:absolute; bottom:16px; left:0; right:0; text-align:center; z-index:5; pointer-events:none; }
-  #joyhint span { display:inline-block; font-size:13px; font-weight:800; color:var(--ink);
-    background:rgba(255,255,255,.85); border-radius:999px; padding:7px 18px; box-shadow:0 3px 0 rgba(43,58,103,.2); }
+  #joyhint span { display:inline-block; font-size:12px; font-weight:600; letter-spacing:1px; color:var(--g300);
+    background:rgba(35,37,50,.85); border:1px solid var(--g700); border-radius:4px; padding:7px 16px; }
 
   /* ============ Studio splash (phase 1) ============ */
-  #splash { position:absolute; inset:0; z-index:30; background:#ffffff;
-    display:flex; flex-direction:column; align-items:center; justify-content:center;
-    transition:opacity .45s; }
+  #splash { position:absolute; inset:0; z-index:30; background:#000;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; transition:opacity .45s; }
   #splash.fadeout { opacity:0; pointer-events:none; }
-  .sp-mark { width:132px; height:132px; position:relative;
-    animation:spPop .8s cubic-bezier(.34,1.56,.64,1) both; }
+  .sp-mark { width:126px; height:126px; position:relative; animation:spPop .8s cubic-bezier(.34,1.56,.64,1) both; }
   .sp-mark::after { content:''; position:absolute; inset:-14px; border-radius:50%;
-    border:3px solid rgba(90,209,255,.35); animation:spRing 1.6s .5s ease-out infinite; }
-  .sp-word { margin-top:26px; font-size:30px; font-weight:900; letter-spacing:8px; color:#2b3a67;
-    animation:rise .7s .45s both; }
-  .sp-presents { margin-top:8px; font-size:12px; font-weight:800; letter-spacing:6px;
-    color:#9aa7c7; text-transform:uppercase; animation:rise .7s .7s both; }
+    border:2px solid rgba(145,132,217,.35); animation:spRing 1.6s .5s ease-out infinite; }
+  .sp-word { margin-top:26px; font-size:26px; font-weight:800; letter-spacing:10px; color:var(--txt); animation:rise .7s .45s both; }
+  .sp-presents { margin-top:8px; font-size:11px; font-weight:700; letter-spacing:7px; color:var(--g300);
+    text-transform:uppercase; animation:rise .7s .7s both; }
   @keyframes spPop { 0% { transform:scale(0) rotate(-18deg); opacity:0; } 100% { transform:scale(1) rotate(0); opacity:1; } }
   @keyframes spRing { 0% { transform:scale(.7); opacity:.8; } 100% { transform:scale(1.25); opacity:0; } }
+  @keyframes rise { 0% { opacity:0; transform:translateY(16px); } 100% { opacity:1; transform:translateY(0); } }
 
-  /* ============ Intro / loading screen (phase 2) ============ */
+  /* ============ Loading screen (phase 2) ============ */
   #boot { z-index:20; transition:opacity .5s; }
   #boot.fadeout { opacity:0; pointer-events:none; }
-  .boot-badge { font-size:14px; font-weight:800; color:var(--inkSoft); letter-spacing:2px;
-    text-transform:uppercase; margin-bottom:26px; opacity:0; animation:rise .8s .2s forwards; }
-  .boot-logo { width:120px; height:120px; margin-bottom:18px; border-radius:32px;
-    background:linear-gradient(160deg,#5ad1ff,#a97bff); border:5px solid #fff;
-    box-shadow:0 10px 0 rgba(43,58,103,.25), 0 18px 40px rgba(43,58,103,.3);
-    display:flex; align-items:center; justify-content:center; font-size:64px;
+  .boot-badge { font-size:12px; font-weight:700; color:var(--g300); letter-spacing:4px; text-transform:uppercase;
+    margin-bottom:26px; opacity:0; animation:rise .8s .2s forwards; }
+  .boot-logo { width:110px; height:110px; margin-bottom:20px; border-radius:22px;
+    background:linear-gradient(160deg,var(--g800),#16122e); border:1px solid var(--v500);
+    box-shadow:0 0 34px rgba(145,132,217,.35);
+    display:flex; align-items:center; justify-content:center; font-size:56px;
     animation:bounceIn .7s cubic-bezier(.34,1.56,.64,1) both, float 2.6s 1s ease-in-out infinite; }
   #boot h1 { animation:rise .7s .35s both; }
-  .boot-sub { font-size:14px; font-weight:800; color:#fff; background:var(--candy); border:3px solid #fff;
-    padding:5px 18px; border-radius:999px; box-shadow:0 4px 0 rgba(43,58,103,.25);
+  .boot-sub { font-size:12px; font-weight:700; letter-spacing:4px; text-transform:uppercase; color:var(--v300);
+    border:1px solid var(--g700); background:var(--g800); padding:6px 16px; border-radius:4px;
     margin:4px 0 34px; animation:rise .7s .5s both; }
-  .loadwrap { position:absolute; bottom:58px; left:0; right:0;
-    display:flex; flex-direction:column; align-items:center; gap:14px; }
-  .loadbar { position:relative; width:min(76vw,330px); height:28px; background:#fff; border:3px solid #fff;
-    border-radius:999px; box-shadow:0 4px 0 rgba(43,58,103,.25), inset 0 2px 5px rgba(43,58,103,.2); overflow:hidden; }
-  .loadbar > i { display:block; height:100%; width:0%; border-radius:999px;
-    background:repeating-linear-gradient(45deg,var(--sun) 0 14px,#ffc93d 14px 28px);
+  .loadwrap { position:absolute; bottom:58px; left:0; right:0; display:flex; flex-direction:column; align-items:center; gap:14px; }
+  .loadbar { position:relative; width:min(76vw,330px); height:22px; background:var(--g900); border:1px solid var(--g700);
+    border-radius:4px; overflow:hidden; }
+  .loadbar > i { display:block; height:100%; width:0%;
+    background:repeating-linear-gradient(45deg,var(--v500) 0 14px,var(--v300) 14px 28px);
     transition:width .25s ease-out; }
   #loadpct { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-    font-weight:900; font-size:14px; color:#fff;
-    text-shadow:-2px 0 0 var(--ink), 2px 0 0 var(--ink), 0 -2px 0 var(--ink), 0 2px 0 var(--ink),
-      -1px -1px 0 var(--ink), 1px 1px 0 var(--ink), -1px 1px 0 var(--ink), 1px -1px 0 var(--ink); }
-  .boot-tip { font-size:14px; font-weight:700; color:var(--ink);
-    background:rgba(255,255,255,.75); border-radius:999px; padding:8px 20px; min-height:20px; }
-  .boot-ver { position:absolute; bottom:12px; font-size:11px; font-weight:700; color:rgba(43,58,103,.5); }
+    font-weight:800; font-size:12px; letter-spacing:1px; color:var(--txt); text-shadow:0 1px 2px #000; }
+  .boot-tip { font-size:12px; font-weight:600; letter-spacing:1px; color:var(--g300);
+    background:var(--g800); border:1px solid var(--g700); border-radius:4px; padding:7px 18px; min-height:18px; }
+  .boot-ver { position:absolute; bottom:12px; font-size:10px; font-weight:700; letter-spacing:2px; color:var(--g700); }
   @keyframes bounceIn { 0% { transform:scale(0) rotate(-20deg); } 100% { transform:scale(1) rotate(0); } }
   @keyframes float { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-10px); } }
-  @keyframes rise { 0% { opacity:0; transform:translateY(16px); } 100% { opacity:1; transform:translateY(0); } }
 </style>
 </head>
 <body>
@@ -175,96 +150,95 @@
 
   <div id="hud" class="hidden">
     <div class="left">
-      <div class="pill">❤️ HP</div>
+      <div class="pill">❤ HP</div>
       <div class="bar"><i id="hpbar"></i></div>
-      <div class="pill">🚪 Room <span id="room">1</span></div>
+      <div class="pill">ROOM <span id="room">1</span></div>
     </div>
     <div class="center">
-      <div class="pill">⭐ Lv <span id="level">1</span></div>
+      <div class="pill">LV <span id="level">1</span></div>
       <div class="bar xpbar"><i id="xpbar"></i></div>
     </div>
     <div class="right">
-      <div class="pill">💎 <span id="coins">0</span></div>
-      <div class="pill" id="weapon">🔫 Pulse Blaster</div>
-      <button id="pauseBtn">⏸ Pause</button>
+      <div class="pill">◆ <span id="coins">0</span></div>
+      <div class="pill" id="weapon">PLASMA RIFLE</div>
+      <button id="pauseBtn">⏸ PAUSE</button>
     </div>
   </div>
 
-  <div id="joyhint" class="hidden"><span>👆 Drag to move · stand still to shoot!</span></div>
+  <div id="joyhint" class="hidden"><span>DRAG TO MOVE · STAND STILL TO FIRE</span></div>
 
   <!-- Studio splash (phase 1) -->
   <div id="splash">
     <svg class="sp-mark" viewBox="0 0 120 120" aria-label="6dotrixx studio mark">
       <defs>
         <linearGradient id="spg" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stop-color="#5ad1ff"/><stop offset="1" stop-color="#a97bff"/>
+          <stop offset="0" stop-color="#9184d9"/><stop offset="1" stop-color="#b5abfc"/>
         </linearGradient>
       </defs>
-      <polygon points="60,6 106,32 106,88 60,114 14,88 14,32" fill="url(#spg)"
-        stroke="#2b3a67" stroke-width="6" stroke-linejoin="round"/>
+      <polygon points="60,6 106,32 106,88 60,114 14,88 14,32" fill="#232532"
+        stroke="url(#spg)" stroke-width="5" stroke-linejoin="round"/>
       <polygon points="60,30 68,50 90,52 74,66 79,88 60,76 41,88 46,66 30,52 52,50"
-        fill="#ffffff" stroke="#2b3a67" stroke-width="4" stroke-linejoin="round"/>
-      <circle cx="88" cy="24" r="5" fill="#ffd93d" stroke="#2b3a67" stroke-width="3"/>
+        fill="url(#spg)" stroke="#16171f" stroke-width="3" stroke-linejoin="round"/>
     </svg>
     <div class="sp-word">6DOTRIXX</div>
     <div class="sp-presents">presents</div>
   </div>
 
-  <!-- Intro / loading screen (phase 2) -->
+  <!-- Loading screen (phase 2) -->
   <div id="boot" class="overlay">
     <div class="boot-badge">A 6dotrixx Game</div>
-    <div class="boot-logo">🛡️</div>
-    <h1>NOVA GUARDIANS</h1>
-    <div class="boot-sub">⭐ Space Hero Adventure ⭐</div>
+    <div class="boot-logo">⚔️</div>
+    <h1>SPACE RANGERS</h1>
+    <div class="boot-sub">Hold the line</div>
     <div class="loadwrap">
-      <div class="boot-tip" id="boottip">Loading the star station…</div>
+      <div class="boot-tip" id="boottip">Deploying rangers…</div>
       <div class="loadbar"><i id="loadfill"></i><span id="loadpct">0%</span></div>
     </div>
-    <div class="boot-ver">v0.9.1</div>
+    <div class="boot-ver">v0.10.0</div>
   </div>
 
   <!-- Pause menu -->
   <div id="pause" class="overlay glass hidden">
-    <h1 style="font-size:40px">PAUSED</h1>
-    <div class="menu-col" style="margin-top:10px">
-      <button class="btn small" id="resumeBtn">▶ &nbsp;RESUME</button>
+    <h1 style="font-size:36px">PAUSED</h1>
+    <div class="menu-col" style="margin-top:12px">
+      <button class="btn small" id="resumeBtn">RESUME</button>
       <button class="btn small alt" id="sndBtn">🔊 SOUND: ON</button>
-      <button class="btn small alt" id="quitBtn">🏠 MAIN MENU</button>
+      <button class="btn small alt" id="quitBtn">MAIN MENU</button>
     </div>
   </div>
 
   <!-- Start screen -->
   <div id="start" class="overlay hidden">
-    <h1>NOVA GUARDIANS</h1>
-    <div class="tag">⭐ Space Hero Adventure ⭐</div>
-    <div id="bestline" class="hidden">🏆 Best: Room 1</div>
-    <p class="sub">Silly space monsters took over the star station!
-      Run, dodge, and zap them room by room — then walk through the glowing gate
-      to the next one. How far can YOU go?</p>
-    <button class="btn" id="startBtn">▶ &nbsp;PLAY!</button>
-    <div class="stat-line">Move: WASD / Arrows — or just drag! 🕹️</div>
-    <div class="credit">An original game.</div>
+    <h1>SPACE RANGERS</h1>
+    <div class="tag">Roguelite Operations</div>
+    <div id="bestline" class="hidden">BEST: ROOM 1</div>
+    <p class="sub">Hostile drones have overrun the outpost.
+      Move to survive. Hold still to fire. Clear each room and push
+      through the gate — as deep as your ranger can go.</p>
+    <button class="btn" id="startBtn">DEPLOY</button>
+    <div class="stat-line">WASD / ARROWS — OR DRAG · AUTO-FIRE WHEN STILL</div>
+    <div class="credit">AN ORIGINAL GAME</div>
   </div>
 
-  <!-- Hero select -->
+  <!-- Ranger select -->
   <div id="heroes" class="overlay hidden">
-    <h1 style="font-size:36px">PICK YOUR HERO!</h1>
-    <p class="sub" style="margin-bottom:8px">Every hero has their own super weapon.</p>
+    <h1 style="font-size:30px">SELECT RANGER</h1>
+    <p class="sub" style="margin-bottom:8px">Every ranger carries a signature weapon.</p>
     <div class="roster" id="roster"></div>
   </div>
 
   <!-- Upgrade screen -->
   <div id="upgrade" class="overlay hidden">
-    <h1 style="font-size:36px">PICK A POWER!</h1>
-    <p class="sub" style="margin-bottom:8px">Room clear — great job! Choose one:</p>
+    <h1 style="font-size:30px">FIELD UPGRADE</h1>
+    <p class="sub" style="margin-bottom:8px">Room clear. Choose one.</p>
     <div class="cards" id="cards"></div>
   </div>
 
   <!-- Game over -->
   <div id="over" class="overlay hidden">
-    <h1 style="font-size:40px">OUCH! 💫</h1>
-    <p class="sub" id="overStats">The monsters got you this time.</p>
-    <button class="btn" id="againBtn">🔁 &nbsp;TRY AGAIN!</button>
+    <h1 style="font-size:34px; color:var(--danger); text-shadow:0 0 24px rgba(224,113,155,.4)">RANGER DOWN</h1>
+    <p class="sub" id="overStats">The drones took the outpost.</p>
+    <button class="btn" id="againBtn">REDEPLOY</button>
   </div>
 </div>
 
@@ -402,34 +376,34 @@ const SFX = (() => {
 // ---------- Guardian roster (original heroes) ----------
 // Portrait art (generated). Falls back to the emoji icon if a URL fails to load.
 const ART = 'https://d8j0ntlcm91z4.cloudfront.net/user_3F047Iq9Ue5VPXNvJsfVjZtSn7t/';
-// The space-warrior cast from the earlier build (account generation history),
-// plus Thornroot for a fourth playstyle.
+// THE SPACE RANGERS — per the production bible (ART_BIBLE.md)
 const HEROES = [
-  { id:'orion', ico:'🏹', name:'Captain Orion', role:'Star Soldier', color:'#4a9be8', perk:'Energy bow — steady and true',
-    art: ART + 'hf_20260713_071327_60ece3ac-5f7c-4fd0-ae24-41320d18f30d.png',
-    base:{ fireRate:0.58, dmg:11, maxHp:110, speed:210, weapon:'pulse' } },
-  { id:'vega',  ico:'🔫', name:'Vega',          role:'Void Scout',   color:'#5ad1ff', perk:'Twin pistols — blazing speed',
-    art: ART + 'hf_20260713_071353_3e190700-7ce2-423a-a2fc-c06ca35fe9d3.png',
-    base:{ fireRate:0.44, dmg:7,  maxHp:85,  speed:240, weapon:'pulse', multishot:2 } },
-  { id:'torq',  ico:'🛡️', name:'Torq',          role:'Juggernaut',   color:'#ffa24a', perk:'Heavy crossbow — piercing power',
-    art: ART + 'hf_20260713_071340_7c6cdaac-3c51-47d9-8e94-e1ec752e97a8.png',
-    base:{ fireRate:0.78, dmg:16, maxHp:155, speed:175, weapon:'rail' } },
-  { id:'thorn', ico:'🌿', name:'Thornroot',     role:'Wildkin',      color:'#4ad682', perk:'Spore Burst — homing spores + lifesteal',
-    art: ART + 'hf_20260715_055153_58a1ad55-ad2f-48b7-afce-806de6102595.png',
-    base:{ fireRate:0.62, dmg:10, maxHp:110, speed:205, lifesteal:0.05, weapon:'spore' } },
+  { id:'rook', ico:'⚔️', name:'Vega "Rook" Ansari', role:'Breacher', color:'#9397ab', perk:'Scatter rifle — brutal up close',
+    art: ART + 'hf_20260817_032932_91071b76-594b-4136-9370-2d054600aaa3.png',
+    base:{ fireRate:0.68, dmg:12, maxHp:130, speed:195, weapon:'scatter' } },
+  { id:'imo',  ico:'🎯', name:'Imo Tal',            role:'Marksman', color:'#b5abfc', perk:'Rail rifle — one slug, three kills',
+    art: ART + 'hf_20260817_032932_21d7c78a-7d58-49d4-9365-9319f75a636d.png',
+    base:{ fireRate:0.85, dmg:18, maxHp:95,  speed:205, weapon:'rail' } },
+  { id:'cass', ico:'🛡️', name:'Cass Duro',          role:'Bulwark',  color:'#7d8299', perk:'Shield discs — immovable, unstoppable',
+    art: ART + 'hf_20260817_032932_c970f9d2-2cbe-4975-9c00-84244bd4f8e9.png',
+    base:{ fireRate:0.80, dmg:11, maxHp:170, speed:165, weapon:'disc' } },
+  { id:'nix',  ico:'👁️', name:'NIX-9',              role:'Synthetic', color:'#9184d9', perk:'Nova orbs — eerie, relentless',
+    art: ART + 'hf_20260817_032932_d51e819e-72b9-431b-a770-03a06c561392.png',
+    base:{ fireRate:0.60, dmg:10, maxHp:100, speed:225, weapon:'nova' } },
 ];
 
 // ---------- Weapons (original) ----------
 // fireRate = multiplier on the hero's base interval (lower = faster).
 // dmgMult scales per-projectile damage; count is base projectiles per shot;
 // behaviour drives special motion. All stack with the upgrade pool.
+// the ranger armory — names from the production bible, violet-family bolts
 const WEAPONS = {
-  pulse:   { name:'Pulse Blaster', ico:'🔫', fireRate:1.00, dmgMult:1.0, projSpeed:480, count:1, spread:0.16, r:5, range:1.0,  color:'#bfefff', behavior:'straight',  desc:'Fast, accurate energy bolts' },
-  rail:    { name:'Rail Lance',    ico:'🔩', fireRate:1.55, dmgMult:2.3, projSpeed:640, count:1, spread:0.04, r:7, range:1.2,  color:'#8fdcff', behavior:'straight', pierce:3, desc:'Slow, heavy shots that punch through' },
-  scatter: { name:'Scatter Coil',  ico:'💠', fireRate:0.80, dmgMult:0.70,projSpeed:430, count:5, spread:0.30, r:4, range:0.85, color:'#ffd15a', behavior:'straight',  desc:'A short-range blast of pellets' },
-  spore:   { name:'Spore Burst',   ico:'🌱', fireRate:1.10, dmgMult:0.8, projSpeed:300, count:3, spread:0.30, r:6, range:1.4,  color:'#7bffb0', behavior:'homing',   desc:'Living spores that seek prey' },
-  nova:    { name:'Nova Orb',      ico:'🌀', fireRate:1.35, dmgMult:1.5, projSpeed:250, count:1, spread:0.0,  r:9, range:1.6,  color:'#c07bff', behavior:'homing', pierce:1, desc:'A slow orb that hunts down foes' },
-  disc:    { name:'Saw Disc',      ico:'🪀', fireRate:0.95, dmgMult:1.0, projSpeed:420, count:2, spread:0.55, r:8, range:1.0,  color:'#5ad1ff', behavior:'boomerang', pierce:99, desc:'Twin blades that fly out and return' },
+  pulse:   { name:'Plasma Rifle',   ico:'🔫', fireRate:1.00, dmgMult:1.0, projSpeed:480, count:1, spread:0.16, r:5, range:1.0,  color:'#d3ccff', behavior:'straight',  desc:'Fast, accurate plasma bolts' },
+  rail:    { name:'Rail Rifle',     ico:'🔩', fireRate:1.55, dmgMult:2.3, projSpeed:640, count:1, spread:0.04, r:7, range:1.2,  color:'#eef0ff', behavior:'straight', pierce:3, desc:'Slow, heavy slugs that punch through' },
+  scatter: { name:'Scatter Rifle',  ico:'💠', fireRate:0.80, dmgMult:0.70,projSpeed:430, count:5, spread:0.30, r:4, range:0.85, color:'#b5abfc', behavior:'straight',  desc:'A short-range blast of flechettes' },
+  spore:   { name:'Seeker Swarm',   ico:'🎯', fireRate:1.10, dmgMult:0.8, projSpeed:300, count:3, spread:0.30, r:6, range:1.4,  color:'#a795ff', behavior:'homing',   desc:'Smart rounds that hunt their mark' },
+  nova:    { name:'Nova Orb',       ico:'🌀', fireRate:1.35, dmgMult:1.5, projSpeed:250, count:1, spread:0.0,  r:9, range:1.6,  color:'#9184d9', behavior:'homing', pierce:1, desc:'A slow orb that hunts down foes' },
+  disc:    { name:'Shield Discs',   ico:'🛡️', fireRate:0.95, dmgMult:1.0, projSpeed:420, count:2, spread:0.55, r:8, range:1.0,  color:'#9397ab', behavior:'boomerang', pierce:99, desc:'Twin discs that fly out and return' },
 };
 let heroDef = HEROES[0];
 
@@ -457,28 +431,30 @@ let obstacles = [];     // pools (block walking) and crates (block walking + sho
 
 // ---------- Room theming (station chambers, palette shifts as you go deeper) ----------
 const PAD = 24;                     // wall thickness — playfield is inset by this
+// production-bible palette: greys and violet only, carved out of darkness
 const ROOM_THEMES = [
-  { floorA:'#aee1ff', floorB:'#9cd6fa', wall:'#4a90d9', glow:'#ffd93d' },   // sky deck
-  { floorA:'#e6d2ff', floorB:'#dbc3fb', wall:'#9a6fe0', glow:'#ffd93d' },   // candy vault
-  { floorA:'#c2f2d4', floorB:'#b0eac5', wall:'#4fb877', glow:'#ffd93d' },   // mint hold
-  { floorA:'#ffe3c4', floorB:'#ffd8ad', wall:'#f2954a', glow:'#fff6a8' },   // peach bay
+  { floorA:'#232532', floorB:'#282a3a', wall:'#3f424d', glow:'#b5abfc' },   // outpost deck
+  { floorA:'#221e33', floorB:'#28233c', wall:'#453a63', glow:'#b5abfc' },   // violet vault
+  { floorA:'#1c1e28', floorB:'#212430', wall:'#394153', glow:'#9184d9' },   // dark hold
+  { floorA:'#2a2333', floorB:'#302840', wall:'#4d3f5e', glow:'#b5abfc' },   // deep bay
 ];
 const roomTheme = () => ROOM_THEMES[Math.floor((room - 1) / 3) % ROOM_THEMES.length];
 
 // ---------- Space-monster archetypes (original) ----------
+// hostile drones — violet/grey family per the art bible
 const ENEMY_TYPES = {
-  voidling: { r:13, hp:22, speed:60,  color:'#b06bff', touch:12, score:1, ai:'chase',  shape:'spiky' },
-  glowspit: { r:15, hp:32, speed:32,  color:'#c97bff', touch:10, score:2, ai:'ranged', shape:'pulse', fireEvery:1.8, projSpeed:210 },
-  ramhorn:  { r:17, hp:46, speed:42,  color:'#ff8a3a', touch:18, score:2, ai:'charge', shape:'horned' },
-  starwisp: { r:12, hp:26, speed:95,  color:'#4ad6c0', touch:10, score:2, ai:'orbit',  shape:'wisp', fireEvery:2.4, projSpeed:180 },
-  devourer: { r:26, hp:150, speed:34, color:'#ff4d5e', touch:26, score:5, ai:'chase',  shape:'maw' },
+  voidling: { r:13, hp:22, speed:60,  color:'#8b7bd9', touch:12, score:1, ai:'chase',  shape:'spiky' },
+  glowspit: { r:15, hp:32, speed:32,  color:'#a795ff', touch:10, score:2, ai:'ranged', shape:'pulse', fireEvery:1.8, projSpeed:210 },
+  ramhorn:  { r:17, hp:46, speed:42,  color:'#6b7089', touch:18, score:2, ai:'charge', shape:'horned' },
+  starwisp: { r:12, hp:26, speed:95,  color:'#cfc8ff', touch:10, score:2, ai:'orbit',  shape:'wisp', fireEvery:2.4, projSpeed:180 },
+  devourer: { r:26, hp:150, speed:34, color:'#e0719b', touch:26, score:5, ai:'chase',  shape:'maw' },
 };
 
 // ---------- Bosses (every 5th sector) ----------
 const BOSS_TYPES = [
-  { name:'RIFTMAW SOVEREIGN', color:'#ff4d5e', shape:'maw',    r:36 },
-  { name:'VOID TYRANT',       color:'#b06bff', shape:'spiky',  r:34 },
-  { name:'STAR DEVOURER',     color:'#4ad6c0', shape:'horned', r:36 },
+  { name:'RIFTMAW SOVEREIGN', color:'#e0719b', shape:'maw',    r:36 },
+  { name:'VOID TYRANT',       color:'#9184d9', shape:'spiky',  r:34 },
+  { name:'STAR DEVOURER',     color:'#b5abfc', shape:'horned', r:36 },
 ];
 
 function spawnBoss(n) {
@@ -679,7 +655,7 @@ function spawnParticles(x, y, color, count) {
     for (let i = 0; i < 4; i++) {
       const a = rand(0, TAU), s = rand(60, 150);
       particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: rand(0.5, 0.9),
-        color: '#ffd93d', r: rand(5, 8), star: true, rot: rand(0, TAU), vr: rand(-8, 8) });
+        color: '#b5abfc', r: rand(5, 8), star: true, rot: rand(0, TAU), vr: rand(-8, 8) });
     }
   }
 }
@@ -976,14 +952,15 @@ function drawRoom() {
   for (const o of obstacles) {
     const x = o.x - o.w / 2, y = o.y - o.h / 2;
     if (o.type === 'pool') {
-      ctx.fillStyle = '#e8913f';
-      ctx.beginPath(); ctx.roundRect(x - 5, y - 5, o.w + 10, o.h + 10, 16); ctx.fill();
-      ctx.fillStyle = '#49c7dd';
+      // violet energy pool
+      ctx.fillStyle = '#9397ab';
+      ctx.beginPath(); ctx.roundRect(x - 4, y - 4, o.w + 8, o.h + 8, 14); ctx.fill();
+      ctx.fillStyle = '#6f5fc4';
       ctx.beginPath(); ctx.roundRect(x, y, o.w, o.h, 12); ctx.fill();
-      ctx.fillStyle = '#2ba8c4';
+      ctx.fillStyle = '#5847a8';
       ctx.beginPath(); ctx.roundRect(x + 8, y + 8, o.w - 16, o.h - 16, 8); ctx.fill();
       ctx.globalAlpha = 0.5 + 0.3 * Math.sin(starPhase * 2 + o.x);
-      ctx.fillStyle = '#bdeef7';
+      ctx.fillStyle = '#b5abfc';
       ctx.beginPath(); ctx.ellipse(o.x - o.w * 0.18, o.y - o.h * 0.15, o.w * 0.16, o.h * 0.1, -0.4, 0, TAU); ctx.fill();
       ctx.globalAlpha = 1;
     } else {
@@ -1262,7 +1239,7 @@ function draw() {
     ctx.font = '900 ' + size + 'px "Comic Sans MS","Segoe UI",sans-serif';
     ctx.lineWidth = 5; ctx.lineJoin = 'round'; ctx.strokeStyle = '#2b3a67';
     ctx.strokeText(f.txt, f.x, f.y);
-    ctx.fillStyle = f.coin ? '#ffd93d' : f.crit ? '#ff5a7a' : '#ffffff';
+    ctx.fillStyle = f.coin ? '#b5abfc' : f.crit ? '#e0719b' : '#ffffff';
     ctx.fillText(f.txt, f.x, f.y);
   }
   ctx.globalAlpha = 1;
@@ -1417,12 +1394,12 @@ requestAnimationFrame(loop);
 // ---------- Intro / loading sequence ----------
 (function bootLoader() {
   const TIPS = [
-    'Tip: stand still to shoot!',
-    'Tip: walk through the gate when the room is clear!',
-    'Tip: every hero has their own super weapon!',
-    'Tip: bosses drop shiny new weapons!',
-    'Tip: picking a power heals you a little!',
-    'Tip: watch out for the charging Ramhorn!',
+    'TIP: STAND STILL TO FIRE',
+    'TIP: CLEAR THE ROOM, THEN TAKE THE GATE',
+    'TIP: EVERY RANGER CARRIES A SIGNATURE WEAPON',
+    'TIP: BOSSES ALWAYS DROP A NEW WEAPON',
+    'TIP: FIELD UPGRADES PATCH YOUR ARMOR',
+    'TIP: CRATES BLOCK ENEMY FIRE — USE COVER',
   ];
   const boot = el('boot'), fill = el('loadfill'), pct = el('loadpct'), tip = el('boottip');
   // phase 1: studio splash card, then fade through to the game loading screen

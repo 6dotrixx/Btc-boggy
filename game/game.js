@@ -131,34 +131,34 @@ const SFX = (() => {
 // ---------- Guardian roster (original heroes) ----------
 // Portrait art (generated). Falls back to the emoji icon if a URL fails to load.
 const ART = 'https://d8j0ntlcm91z4.cloudfront.net/user_3F047Iq9Ue5VPXNvJsfVjZtSn7t/';
-// The space-warrior cast from the earlier build (account generation history),
-// plus Thornroot for a fourth playstyle.
+// THE SPACE RANGERS — per the production bible (ART_BIBLE.md)
 const HEROES = [
-  { id:'orion', ico:'🏹', name:'Captain Orion', role:'Star Soldier', color:'#4a9be8', perk:'Energy bow — steady and true',
-    art: ART + 'hf_20260713_071327_60ece3ac-5f7c-4fd0-ae24-41320d18f30d.png',
-    base:{ fireRate:0.58, dmg:11, maxHp:110, speed:210, weapon:'pulse' } },
-  { id:'vega',  ico:'🔫', name:'Vega',          role:'Void Scout',   color:'#5ad1ff', perk:'Twin pistols — blazing speed',
-    art: ART + 'hf_20260713_071353_3e190700-7ce2-423a-a2fc-c06ca35fe9d3.png',
-    base:{ fireRate:0.44, dmg:7,  maxHp:85,  speed:240, weapon:'pulse', multishot:2 } },
-  { id:'torq',  ico:'🛡️', name:'Torq',          role:'Juggernaut',   color:'#ffa24a', perk:'Heavy crossbow — piercing power',
-    art: ART + 'hf_20260713_071340_7c6cdaac-3c51-47d9-8e94-e1ec752e97a8.png',
-    base:{ fireRate:0.78, dmg:16, maxHp:155, speed:175, weapon:'rail' } },
-  { id:'thorn', ico:'🌿', name:'Thornroot',     role:'Wildkin',      color:'#4ad682', perk:'Spore Burst — homing spores + lifesteal',
-    art: ART + 'hf_20260715_055153_58a1ad55-ad2f-48b7-afce-806de6102595.png',
-    base:{ fireRate:0.62, dmg:10, maxHp:110, speed:205, lifesteal:0.05, weapon:'spore' } },
+  { id:'rook', ico:'⚔️', name:'Vega "Rook" Ansari', role:'Breacher', color:'#9397ab', perk:'Scatter rifle — brutal up close',
+    art: ART + 'hf_20260817_032932_91071b76-594b-4136-9370-2d054600aaa3.png',
+    base:{ fireRate:0.68, dmg:12, maxHp:130, speed:195, weapon:'scatter' } },
+  { id:'imo',  ico:'🎯', name:'Imo Tal',            role:'Marksman', color:'#b5abfc', perk:'Rail rifle — one slug, three kills',
+    art: ART + 'hf_20260817_032932_21d7c78a-7d58-49d4-9365-9319f75a636d.png',
+    base:{ fireRate:0.85, dmg:18, maxHp:95,  speed:205, weapon:'rail' } },
+  { id:'cass', ico:'🛡️', name:'Cass Duro',          role:'Bulwark',  color:'#7d8299', perk:'Shield discs — immovable, unstoppable',
+    art: ART + 'hf_20260817_032932_c970f9d2-2cbe-4975-9c00-84244bd4f8e9.png',
+    base:{ fireRate:0.80, dmg:11, maxHp:170, speed:165, weapon:'disc' } },
+  { id:'nix',  ico:'👁️', name:'NIX-9',              role:'Synthetic', color:'#9184d9', perk:'Nova orbs — eerie, relentless',
+    art: ART + 'hf_20260817_032932_d51e819e-72b9-431b-a770-03a06c561392.png',
+    base:{ fireRate:0.60, dmg:10, maxHp:100, speed:225, weapon:'nova' } },
 ];
 
 // ---------- Weapons (original) ----------
 // fireRate = multiplier on the hero's base interval (lower = faster).
 // dmgMult scales per-projectile damage; count is base projectiles per shot;
 // behaviour drives special motion. All stack with the upgrade pool.
+// the ranger armory — names from the production bible, violet-family bolts
 const WEAPONS = {
-  pulse:   { name:'Pulse Blaster', ico:'🔫', fireRate:1.00, dmgMult:1.0, projSpeed:480, count:1, spread:0.16, r:5, range:1.0,  color:'#bfefff', behavior:'straight',  desc:'Fast, accurate energy bolts' },
-  rail:    { name:'Rail Lance',    ico:'🔩', fireRate:1.55, dmgMult:2.3, projSpeed:640, count:1, spread:0.04, r:7, range:1.2,  color:'#8fdcff', behavior:'straight', pierce:3, desc:'Slow, heavy shots that punch through' },
-  scatter: { name:'Scatter Coil',  ico:'💠', fireRate:0.80, dmgMult:0.70,projSpeed:430, count:5, spread:0.30, r:4, range:0.85, color:'#ffd15a', behavior:'straight',  desc:'A short-range blast of pellets' },
-  spore:   { name:'Spore Burst',   ico:'🌱', fireRate:1.10, dmgMult:0.8, projSpeed:300, count:3, spread:0.30, r:6, range:1.4,  color:'#7bffb0', behavior:'homing',   desc:'Living spores that seek prey' },
-  nova:    { name:'Nova Orb',      ico:'🌀', fireRate:1.35, dmgMult:1.5, projSpeed:250, count:1, spread:0.0,  r:9, range:1.6,  color:'#c07bff', behavior:'homing', pierce:1, desc:'A slow orb that hunts down foes' },
-  disc:    { name:'Saw Disc',      ico:'🪀', fireRate:0.95, dmgMult:1.0, projSpeed:420, count:2, spread:0.55, r:8, range:1.0,  color:'#5ad1ff', behavior:'boomerang', pierce:99, desc:'Twin blades that fly out and return' },
+  pulse:   { name:'Plasma Rifle',   ico:'🔫', fireRate:1.00, dmgMult:1.0, projSpeed:480, count:1, spread:0.16, r:5, range:1.0,  color:'#d3ccff', behavior:'straight',  desc:'Fast, accurate plasma bolts' },
+  rail:    { name:'Rail Rifle',     ico:'🔩', fireRate:1.55, dmgMult:2.3, projSpeed:640, count:1, spread:0.04, r:7, range:1.2,  color:'#eef0ff', behavior:'straight', pierce:3, desc:'Slow, heavy slugs that punch through' },
+  scatter: { name:'Scatter Rifle',  ico:'💠', fireRate:0.80, dmgMult:0.70,projSpeed:430, count:5, spread:0.30, r:4, range:0.85, color:'#b5abfc', behavior:'straight',  desc:'A short-range blast of flechettes' },
+  spore:   { name:'Seeker Swarm',   ico:'🎯', fireRate:1.10, dmgMult:0.8, projSpeed:300, count:3, spread:0.30, r:6, range:1.4,  color:'#a795ff', behavior:'homing',   desc:'Smart rounds that hunt their mark' },
+  nova:    { name:'Nova Orb',       ico:'🌀', fireRate:1.35, dmgMult:1.5, projSpeed:250, count:1, spread:0.0,  r:9, range:1.6,  color:'#9184d9', behavior:'homing', pierce:1, desc:'A slow orb that hunts down foes' },
+  disc:    { name:'Shield Discs',   ico:'🛡️', fireRate:0.95, dmgMult:1.0, projSpeed:420, count:2, spread:0.55, r:8, range:1.0,  color:'#9397ab', behavior:'boomerang', pierce:99, desc:'Twin discs that fly out and return' },
 };
 let heroDef = HEROES[0];
 
@@ -186,28 +186,30 @@ let obstacles = [];     // pools (block walking) and crates (block walking + sho
 
 // ---------- Room theming (station chambers, palette shifts as you go deeper) ----------
 const PAD = 24;                     // wall thickness — playfield is inset by this
+// production-bible palette: greys and violet only, carved out of darkness
 const ROOM_THEMES = [
-  { floorA:'#aee1ff', floorB:'#9cd6fa', wall:'#4a90d9', glow:'#ffd93d' },   // sky deck
-  { floorA:'#e6d2ff', floorB:'#dbc3fb', wall:'#9a6fe0', glow:'#ffd93d' },   // candy vault
-  { floorA:'#c2f2d4', floorB:'#b0eac5', wall:'#4fb877', glow:'#ffd93d' },   // mint hold
-  { floorA:'#ffe3c4', floorB:'#ffd8ad', wall:'#f2954a', glow:'#fff6a8' },   // peach bay
+  { floorA:'#232532', floorB:'#282a3a', wall:'#3f424d', glow:'#b5abfc' },   // outpost deck
+  { floorA:'#221e33', floorB:'#28233c', wall:'#453a63', glow:'#b5abfc' },   // violet vault
+  { floorA:'#1c1e28', floorB:'#212430', wall:'#394153', glow:'#9184d9' },   // dark hold
+  { floorA:'#2a2333', floorB:'#302840', wall:'#4d3f5e', glow:'#b5abfc' },   // deep bay
 ];
 const roomTheme = () => ROOM_THEMES[Math.floor((room - 1) / 3) % ROOM_THEMES.length];
 
 // ---------- Space-monster archetypes (original) ----------
+// hostile drones — violet/grey family per the art bible
 const ENEMY_TYPES = {
-  voidling: { r:13, hp:22, speed:60,  color:'#b06bff', touch:12, score:1, ai:'chase',  shape:'spiky' },
-  glowspit: { r:15, hp:32, speed:32,  color:'#c97bff', touch:10, score:2, ai:'ranged', shape:'pulse', fireEvery:1.8, projSpeed:210 },
-  ramhorn:  { r:17, hp:46, speed:42,  color:'#ff8a3a', touch:18, score:2, ai:'charge', shape:'horned' },
-  starwisp: { r:12, hp:26, speed:95,  color:'#4ad6c0', touch:10, score:2, ai:'orbit',  shape:'wisp', fireEvery:2.4, projSpeed:180 },
-  devourer: { r:26, hp:150, speed:34, color:'#ff4d5e', touch:26, score:5, ai:'chase',  shape:'maw' },
+  voidling: { r:13, hp:22, speed:60,  color:'#8b7bd9', touch:12, score:1, ai:'chase',  shape:'spiky' },
+  glowspit: { r:15, hp:32, speed:32,  color:'#a795ff', touch:10, score:2, ai:'ranged', shape:'pulse', fireEvery:1.8, projSpeed:210 },
+  ramhorn:  { r:17, hp:46, speed:42,  color:'#6b7089', touch:18, score:2, ai:'charge', shape:'horned' },
+  starwisp: { r:12, hp:26, speed:95,  color:'#cfc8ff', touch:10, score:2, ai:'orbit',  shape:'wisp', fireEvery:2.4, projSpeed:180 },
+  devourer: { r:26, hp:150, speed:34, color:'#e0719b', touch:26, score:5, ai:'chase',  shape:'maw' },
 };
 
 // ---------- Bosses (every 5th sector) ----------
 const BOSS_TYPES = [
-  { name:'RIFTMAW SOVEREIGN', color:'#ff4d5e', shape:'maw',    r:36 },
-  { name:'VOID TYRANT',       color:'#b06bff', shape:'spiky',  r:34 },
-  { name:'STAR DEVOURER',     color:'#4ad6c0', shape:'horned', r:36 },
+  { name:'RIFTMAW SOVEREIGN', color:'#e0719b', shape:'maw',    r:36 },
+  { name:'VOID TYRANT',       color:'#9184d9', shape:'spiky',  r:34 },
+  { name:'STAR DEVOURER',     color:'#b5abfc', shape:'horned', r:36 },
 ];
 
 function spawnBoss(n) {
@@ -408,7 +410,7 @@ function spawnParticles(x, y, color, count) {
     for (let i = 0; i < 4; i++) {
       const a = rand(0, TAU), s = rand(60, 150);
       particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: rand(0.5, 0.9),
-        color: '#ffd93d', r: rand(5, 8), star: true, rot: rand(0, TAU), vr: rand(-8, 8) });
+        color: '#b5abfc', r: rand(5, 8), star: true, rot: rand(0, TAU), vr: rand(-8, 8) });
     }
   }
 }
@@ -705,14 +707,15 @@ function drawRoom() {
   for (const o of obstacles) {
     const x = o.x - o.w / 2, y = o.y - o.h / 2;
     if (o.type === 'pool') {
-      ctx.fillStyle = '#e8913f';
-      ctx.beginPath(); ctx.roundRect(x - 5, y - 5, o.w + 10, o.h + 10, 16); ctx.fill();
-      ctx.fillStyle = '#49c7dd';
+      // violet energy pool
+      ctx.fillStyle = '#9397ab';
+      ctx.beginPath(); ctx.roundRect(x - 4, y - 4, o.w + 8, o.h + 8, 14); ctx.fill();
+      ctx.fillStyle = '#6f5fc4';
       ctx.beginPath(); ctx.roundRect(x, y, o.w, o.h, 12); ctx.fill();
-      ctx.fillStyle = '#2ba8c4';
+      ctx.fillStyle = '#5847a8';
       ctx.beginPath(); ctx.roundRect(x + 8, y + 8, o.w - 16, o.h - 16, 8); ctx.fill();
       ctx.globalAlpha = 0.5 + 0.3 * Math.sin(starPhase * 2 + o.x);
-      ctx.fillStyle = '#bdeef7';
+      ctx.fillStyle = '#b5abfc';
       ctx.beginPath(); ctx.ellipse(o.x - o.w * 0.18, o.y - o.h * 0.15, o.w * 0.16, o.h * 0.1, -0.4, 0, TAU); ctx.fill();
       ctx.globalAlpha = 1;
     } else {
@@ -991,7 +994,7 @@ function draw() {
     ctx.font = '900 ' + size + 'px "Comic Sans MS","Segoe UI",sans-serif';
     ctx.lineWidth = 5; ctx.lineJoin = 'round'; ctx.strokeStyle = '#2b3a67';
     ctx.strokeText(f.txt, f.x, f.y);
-    ctx.fillStyle = f.coin ? '#ffd93d' : f.crit ? '#ff5a7a' : '#ffffff';
+    ctx.fillStyle = f.coin ? '#b5abfc' : f.crit ? '#e0719b' : '#ffffff';
     ctx.fillText(f.txt, f.x, f.y);
   }
   ctx.globalAlpha = 1;
@@ -1146,12 +1149,12 @@ requestAnimationFrame(loop);
 // ---------- Intro / loading sequence ----------
 (function bootLoader() {
   const TIPS = [
-    'Tip: stand still to shoot!',
-    'Tip: walk through the gate when the room is clear!',
-    'Tip: every hero has their own super weapon!',
-    'Tip: bosses drop shiny new weapons!',
-    'Tip: picking a power heals you a little!',
-    'Tip: watch out for the charging Ramhorn!',
+    'TIP: STAND STILL TO FIRE',
+    'TIP: CLEAR THE ROOM, THEN TAKE THE GATE',
+    'TIP: EVERY RANGER CARRIES A SIGNATURE WEAPON',
+    'TIP: BOSSES ALWAYS DROP A NEW WEAPON',
+    'TIP: FIELD UPGRADES PATCH YOUR ARMOR',
+    'TIP: CRATES BLOCK ENEMY FIRE — USE COVER',
   ];
   const boot = el('boot'), fill = el('loadfill'), pct = el('loadpct'), tip = el('boottip');
   // phase 1: studio splash card, then fade through to the game loading screen
