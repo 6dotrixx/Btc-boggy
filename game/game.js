@@ -952,6 +952,54 @@ function loop() {
 }
 requestAnimationFrame(loop);
 
+// ---------- Intro / loading sequence ----------
+(function bootLoader() {
+  const TIPS = [
+    'Tip: stand still to shoot!',
+    'Tip: walk through the gate when the room is clear!',
+    'Tip: every hero has their own super weapon!',
+    'Tip: bosses drop shiny new weapons!',
+    'Tip: picking a power heals you a little!',
+    'Tip: watch out for the charging Ramhorn!',
+  ];
+  const boot = el('boot'), fill = el('loadfill'), pct = el('loadpct'), tip = el('boottip');
+  const assets = HEROES.map(h => h.art).filter(Boolean);
+  const MIN_MS = 2600, MAX_MS = 6000;      // always show the intro; never hang on slow networks
+  const t0 = performance.now();
+  let loaded = 0, tipIdx = 0, done = false;
+
+  const tipTimer = setInterval(() => {
+    tipIdx = (tipIdx + 1) % TIPS.length;
+    tip.textContent = TIPS[tipIdx];
+  }, 1400);
+
+  for (const src of assets) {
+    const img = new Image();
+    img.onload = img.onerror = () => { loaded++; };   // offline still finishes the bar
+    img.src = src;
+  }
+
+  function finish() {
+    if (done) return; done = true;
+    clearInterval(tipTimer);
+    boot.classList.add('fadeout');
+    el('start').classList.remove('hidden');
+    setTimeout(() => boot.remove(), 600);
+  }
+
+  (function tick() {
+    const elapsed = performance.now() - t0;
+    const assetProg = assets.length ? loaded / assets.length : 1;
+    const timeProg = Math.min(1, elapsed / MIN_MS);
+    const prog = Math.min(assetProg, 1) * 0.6 + timeProg * 0.4;   // blend real + paced progress
+    const shown = Math.min(1, elapsed >= MAX_MS ? 1 : prog);
+    fill.style.width = Math.round(shown * 100) + '%';
+    pct.textContent = Math.round(shown * 100) + '%';
+    if ((assetProg >= 1 && elapsed >= MIN_MS) || elapsed >= MAX_MS) { fill.style.width = '100%'; pct.textContent = '100%'; setTimeout(finish, 250); return; }
+    requestAnimationFrame(tick);
+  })();
+})();
+
 // ---------- Debug / automation hook (harmless in production) ----------
 window.NOVA_DEBUG = {
   snapshot: () => ({
