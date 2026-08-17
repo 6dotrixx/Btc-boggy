@@ -402,19 +402,21 @@ const SFX = (() => {
 // ---------- Guardian roster (original heroes) ----------
 // Portrait art (generated). Falls back to the emoji icon if a URL fails to load.
 const ART = 'https://d8j0ntlcm91z4.cloudfront.net/user_3F047Iq9Ue5VPXNvJsfVjZtSn7t/';
+// The space-warrior cast from the earlier build (account generation history),
+// plus Thornroot for a fourth playstyle.
 const HEROES = [
-  { id:'vex',  ico:'🛰️', name:'Vex Corran',  role:'Ace Pilot',  color:'#5ad1ff', perk:'Fast guns, quick fire rate',
-    art: ART + 'hf_20260715_055144_9ff907b8-a2ec-4979-abfe-035bfff52b5e.png',
-    base:{ fireRate:0.50, dmg:9,  maxHp:90,  speed:230, weapon:'pulse' } },
-  { id:'kaela',ico:'🛡️', name:'Kaela Vorn',  role:'Warbreaker', color:'#ff5a7a', perk:'Rail Lance — slow, armor-piercing cannon',
-    art: ART + 'hf_20260715_055149_d5456b00-5f84-4a0a-907e-0da1b71b9ef2.png',
-    base:{ fireRate:0.72, dmg:14, maxHp:140, speed:190, weapon:'rail' } },
-  { id:'thorn',ico:'🌿', name:'Thornroot',   role:'Wildkin',    color:'#4ad682', perk:'Spore Burst — homing spores + lifesteal',
+  { id:'orion', ico:'🏹', name:'Captain Orion', role:'Star Soldier', color:'#4a9be8', perk:'Energy bow — steady and true',
+    art: ART + 'hf_20260713_071327_60ece3ac-5f7c-4fd0-ae24-41320d18f30d.png',
+    base:{ fireRate:0.58, dmg:11, maxHp:110, speed:210, weapon:'pulse' } },
+  { id:'vega',  ico:'🔫', name:'Vega',          role:'Void Scout',   color:'#5ad1ff', perk:'Twin pistols — blazing speed',
+    art: ART + 'hf_20260713_071353_3e190700-7ce2-423a-a2fc-c06ca35fe9d3.png',
+    base:{ fireRate:0.44, dmg:7,  maxHp:85,  speed:240, weapon:'pulse', multishot:2 } },
+  { id:'torq',  ico:'🛡️', name:'Torq',          role:'Juggernaut',   color:'#ffa24a', perk:'Heavy crossbow — piercing power',
+    art: ART + 'hf_20260713_071340_7c6cdaac-3c51-47d9-8e94-e1ec752e97a8.png',
+    base:{ fireRate:0.78, dmg:16, maxHp:155, speed:175, weapon:'rail' } },
+  { id:'thorn', ico:'🌿', name:'Thornroot',     role:'Wildkin',      color:'#4ad682', perk:'Spore Burst — homing spores + lifesteal',
     art: ART + 'hf_20260715_055153_58a1ad55-ad2f-48b7-afce-806de6102595.png',
     base:{ fireRate:0.62, dmg:10, maxHp:110, speed:205, lifesteal:0.05, weapon:'spore' } },
-  { id:'rax',  ico:'🤖', name:'Rax-9',       role:'Gun Drone',  color:'#ffa24a', perk:'Scatter Coil — twin spread cannons',
-    art: ART + 'hf_20260715_055157_26ffa1aa-4873-4b6b-9f18-fff84ea435fc.png',
-    base:{ fireRate:0.66, dmg:9,  maxHp:100, speed:205, weapon:'scatter' } },
 ];
 
 // ---------- Weapons (original) ----------

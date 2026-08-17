@@ -17,10 +17,12 @@ Open `index.html` in any modern browser. No build step, no dependencies.
 
 ## Features
 
-- 4 playable guardians, each with original portrait art, a different ship,
-  and a starting edge (Vex Corran, Kaela Vorn, Thornroot, Rax-9).
-  Hero-select cards load the art from a CDN and fall back to an icon if
-  offline — drop local copies in `assets/heroes/` to self-host.
+- 4 playable guardians, each with original generated character art and a
+  starting edge: Captain Orion (Star Soldier, energy bow), Vega (Void
+  Scout, twin pistols), Torq (Juggernaut, heavy crossbow), and Thornroot
+  (Wildkin, homing spores + lifesteal). Hero-select cards load the art
+  from a CDN and fall back to an icon if offline — drop local copies in
+  `assets/heroes/` to self-host.
 - Move-to-dodge / stop-to-shoot combat with auto-targeting
 - 5 space-monster archetypes with distinct AI
   (voidling, glowspit, ramhorn, starwisp, devourer)
