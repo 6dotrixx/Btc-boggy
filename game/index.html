@@ -85,7 +85,10 @@
   .card .name { font-weight:800; font-size:14px; letter-spacing:1px; color:#16122e; padding:10px 8px;
     background:linear-gradient(180deg,var(--v300),var(--v500)); text-transform:uppercase; }
   .card.weapon-card .name { background:linear-gradient(180deg,#d3ccff,var(--v300)); }
-  .card .ico { font-size:42px; margin:16px 0 6px; filter:grayscale(.25) drop-shadow(0 0 12px rgba(181,171,252,.35)); }
+  .card .ico { display:flex; justify-content:center; font-size:42px; margin:16px 0 6px;
+    filter:drop-shadow(0 0 12px rgba(181,171,252,.3)); }
+  .card .ico svg { width:58px; height:58px; }
+  #abilities .ab svg { width:26px; height:26px; }
   .card .desc { font-size:13px; font-weight:500; color:var(--g300); line-height:1.45; padding:4px 14px 0; }
   .card .rar { display:inline-block; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:2px;
     margin-top:12px; padding:3px 12px; border-radius:3px; border:1px solid var(--g700); }

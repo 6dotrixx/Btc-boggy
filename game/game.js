@@ -263,7 +263,32 @@ const UPGRADES = [
   { id:'leech', ico:'🩸', name:'Siphon Beam',     rar:'epic',   desc:'Heal 6% of damage',   apply:p=>p.lifesteal+=0.06 },
   { id:'big',   ico:'💥', name:'Heavy Cannon',    rar:'epic',   desc:'+50% dmg, -10% rate', apply:p=>{p.dmg*=1.5;p.fireRate*=1.10;} },
 ];
-const RAR_COLOR = { common:'#9fb2cf', rare:'#5ad1ff', epic:'#c07bff', weapon:'#ffd15a' };
+const RAR_COLOR = { common:'#9397ab', rare:'#b5abfc', epic:'#9184d9', weapon:'#d3ccff' };
+
+// ---------- Ability & weapon icons (hand-built SVG, bible palette) ----------
+const SVGT = inner => `<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect x="1.5" y="1.5" width="45" height="45" rx="10" fill="#232532" stroke="#3f424d" stroke-width="2"/>${inner}</svg>`;
+const ICON = {
+  dmg:   SVGT('<circle cx="24" cy="24" r="11" fill="none" stroke="#9184d9" stroke-width="2.5"/><circle cx="24" cy="24" r="6" fill="#b5abfc"/><g stroke="#b5abfc" stroke-width="2.5" stroke-linecap="round"><line x1="24" y1="6" x2="24" y2="11"/><line x1="24" y1="37" x2="24" y2="42"/><line x1="6" y1="24" x2="11" y2="24"/><line x1="37" y1="24" x2="42" y2="24"/></g>'),
+  rate:  SVGT('<polygon points="27,6 13,27 22,27 20,42 35,20 26,20" fill="#b5abfc"/>'),
+  hp:    SVGT('<path d="M24 7 L38 15 V29 L24 41 L10 29 V15 Z" fill="none" stroke="#9184d9" stroke-width="2.5"/><rect x="16" y="21" width="16" height="6" rx="2" fill="#b5abfc"/>'),
+  speed: SVGT('<g fill="none" stroke="#b5abfc" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><polyline points="13,12 24,24 13,36"/><polyline points="26,12 37,24 26,36"/></g>'),
+  multi: SVGT('<g stroke="#b5abfc" stroke-width="3.5" stroke-linecap="round"><line x1="24" y1="40" x2="11" y2="15"/><line x1="24" y1="40" x2="24" y2="10"/><line x1="24" y1="40" x2="37" y2="15"/></g><g fill="#9184d9"><polygon points="10,11 7,20 16,17"/><polygon points="24,6 19,14 29,14"/><polygon points="38,11 32,17 41,20"/></g>'),
+  pierce:SVGT('<rect x="16" y="12" width="4" height="24" rx="1.5" fill="#9184d9"/><rect x="27" y="12" width="4" height="24" rx="1.5" fill="#9184d9"/><line x1="6" y1="24" x2="36" y2="24" stroke="#b5abfc" stroke-width="4" stroke-linecap="round"/><polygon points="43,24 34,19 34,29" fill="#b5abfc"/>'),
+  ric:   SVGT('<polyline points="8,36 19,15 29,31 37,16" fill="none" stroke="#b5abfc" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><polygon points="41,9 33,12 39,19" fill="#9184d9"/>'),
+  crit:  SVGT('<circle cx="24" cy="24" r="12" fill="none" stroke="#b5abfc" stroke-width="3"/><g stroke="#b5abfc" stroke-width="3" stroke-linecap="round"><line x1="24" y1="5" x2="24" y2="12"/><line x1="24" y1="36" x2="24" y2="43"/><line x1="5" y1="24" x2="12" y2="24"/><line x1="36" y1="24" x2="43" y2="24"/></g><circle cx="24" cy="24" r="3.5" fill="#9184d9"/>'),
+  side:  SVGT('<rect x="20" y="20" width="8" height="8" rx="2" fill="#9184d9"/><g stroke="#b5abfc" stroke-width="4" stroke-linecap="round"><line x1="16" y1="24" x2="10" y2="24"/><line x1="32" y1="24" x2="38" y2="24"/></g><polygon points="4,24 12,19 12,29" fill="#b5abfc"/><polygon points="44,24 36,19 36,29" fill="#b5abfc"/>'),
+  back:  SVGT('<circle cx="24" cy="15" r="6" fill="#9184d9"/><line x1="24" y1="24" x2="24" y2="34" stroke="#b5abfc" stroke-width="4" stroke-linecap="round"/><polygon points="24,42 18,33 30,33" fill="#b5abfc"/>'),
+  leech: SVGT('<path d="M24 7 C29 16 33 20 33 27 A9 9 0 1 1 15 27 C15 20 19 16 24 7 Z" fill="#9184d9"/><circle cx="24" cy="28" r="4" fill="#b5abfc"/>'),
+  big:   SVGT('<rect x="7" y="18" width="21" height="12" rx="3" fill="#9397ab"/><rect x="28" y="13" width="6" height="22" rx="2" fill="#9184d9"/><g stroke="#b5abfc" stroke-width="3" stroke-linecap="round"><line x1="38" y1="16" x2="42" y2="12"/><line x1="39" y1="24" x2="44" y2="24"/><line x1="38" y1="32" x2="42" y2="36"/></g>'),
+};
+const ICON_W = {
+  pulse:   SVGT('<rect x="6" y="21" width="24" height="6" rx="2" fill="#9397ab"/><rect x="11" y="27" width="6" height="9" rx="2" fill="#3f424d" stroke="#9397ab" stroke-width="1.5"/><circle cx="37" cy="24" r="5" fill="#b5abfc"/>'),
+  rail:    SVGT('<rect x="5" y="22" width="33" height="4" rx="2" fill="#9397ab"/><g fill="#9184d9"><rect x="11" y="18" width="3" height="12" rx="1"/><rect x="19" y="18" width="3" height="12" rx="1"/><rect x="27" y="18" width="3" height="12" rx="1"/></g><polygon points="44,24 37,20 37,28" fill="#b5abfc"/>'),
+  scatter: SVGT('<rect x="6" y="21" width="17" height="6" rx="2" fill="#9397ab"/><g fill="#b5abfc"><circle cx="31" cy="14" r="3"/><circle cx="36" cy="24" r="3.5"/><circle cx="31" cy="34" r="3"/></g>'),
+  spore:   SVGT('<g fill="none" stroke="#b5abfc" stroke-width="3" stroke-linecap="round"><path d="M8 12 Q22 14 29 21"/><path d="M8 24 Q20 24 29 25"/><path d="M8 36 Q22 34 29 29"/></g><circle cx="36" cy="25" r="5" fill="#9184d9"/>'),
+  nova:    SVGT('<circle cx="24" cy="24" r="9" fill="#9184d9"/><circle cx="24" cy="24" r="14" fill="none" stroke="#b5abfc" stroke-width="2.5" stroke-dasharray="6 5"/><circle cx="35" cy="13" r="3" fill="#b5abfc"/>'),
+  disc:    SVGT('<circle cx="19" cy="24" r="10" fill="none" stroke="#b5abfc" stroke-width="3.5"/><circle cx="29" cy="24" r="10" fill="none" stroke="#9184d9" stroke-width="3.5"/>'),
+};
 
 function pickUpgrades(n) {
   const pool = [...UPGRADES], out = [];
@@ -1209,7 +1234,7 @@ function weaponOffer() {
   const ids = Object.keys(WEAPONS).filter(id => WEAPONS[id] !== player.weapon);
   const id = ids[Math.floor(Math.random() * ids.length)];
   const w = WEAPONS[id];
-  return { ico: w.ico, name: w.name, rar: 'weapon', desc: w.desc, isWeapon: true,
+  return { ico: w.ico, svg: ICON_W[id], name: w.name, rar: 'weapon', desc: w.desc, isWeapon: true,
     apply: p => { p.weapon = w; } };
 }
 
@@ -1222,13 +1247,14 @@ function openUpgrades() {
   if (room % 5 === 0 || (room >= 2 && Math.random() < 0.4)) picks[Math.floor(Math.random() * picks.length)] = weaponOffer();
   const wrap = el('cards'); wrap.innerHTML = '';
   for (const u of picks) {
+    const glyph = u.svg || ICON[u.id] || u.ico;   // SVG icon with emoji fallback
     const c = document.createElement('div');
     c.className = 'card' + (u.isWeapon ? ' weapon-card' : '');
-    c.innerHTML = `<div class="name">${u.name}</div><div class="ico">${u.ico}</div>
+    c.innerHTML = `<div class="name">${u.name}</div><div class="ico">${glyph}</div>
       <div class="desc">${u.desc}</div><div class="rar" style="color:${RAR_COLOR[u.rar]}">${u.isWeapon ? 'new weapon' : u.rar}</div>`;
     c.onclick = () => {
       SFX.pick(); u.apply(player); heal(player.maxHp * 0.15);
-      if (!u.isWeapon) { (player.picks = player.picks || []).push(u.ico); renderAbilities(); }
+      if (!u.isWeapon) { (player.picks = player.picks || []).push(u.svg || ICON[u.id] || u.ico); renderAbilities(); }
       nextRoom();
     };
     wrap.appendChild(c);
