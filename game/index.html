@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#000000" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="mobile-web-app-capable" content="yes" />
+<title>Space Rangers</title>
+<style>
+  :root {
+    /* production bible palette — greys and violet on black, nothing else */
+    --g900:#16171f; --g800:#232532; --g700:#3f424d; --g300:#9397ab;
+    --v500:#9184d9; --v300:#b5abfc;
+    --txt:#e8e9f2; --danger:#e0719b;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  html,body { height:100%; background:#000; overflow:hidden;
+    font-family:'Segoe UI', system-ui, -apple-system, sans-serif; color:var(--txt); }
+  #wrap { position:relative; width:100vw; height:100vh; display:flex; align-items:center; justify-content:center; }
+  canvas { background:#000; touch-action:none; display:block; box-shadow:0 0 60px rgba(145,132,217,.15); }
+
+  /* ============ Overlay screens — carved out of darkness ============ */
+  .overlay { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:radial-gradient(ellipse at 50% 20%, rgba(145,132,217,.10), transparent 55%), #000;
+    text-align:center; padding:24px; z-index:10; overflow-y:auto; }
+  .hidden { display:none !important; }
+
+  h1 { font-size:clamp(32px,7vw,58px); font-weight:800; letter-spacing:6px; color:var(--txt);
+    text-transform:uppercase; margin-bottom:10px;
+    text-shadow:0 0 24px rgba(181,171,252,.45), 0 2px 0 #000; }
+  .tag { font-size:12px; font-weight:700; letter-spacing:5px; text-transform:uppercase; color:var(--v300);
+    border:1px solid var(--g700); background:var(--g800); padding:7px 20px; border-radius:4px; margin-bottom:22px; }
+  .sub { color:var(--g300); font-size:15px; font-weight:500; max-width:440px; line-height:1.6; margin-bottom:24px; }
+
+  .btn { font-family:inherit; background:linear-gradient(180deg,var(--v300),var(--v500)); color:#16122e;
+    border:1px solid var(--v300); font-weight:800; font-size:16px; letter-spacing:3px; text-transform:uppercase;
+    padding:15px 46px; border-radius:6px; cursor:pointer;
+    box-shadow:0 0 26px rgba(145,132,217,.35); transition:transform .08s, box-shadow .12s; }
+  .btn:hover { transform:translateY(-2px); box-shadow:0 0 38px rgba(181,171,252,.5); }
+  .btn:active { transform:translateY(1px); box-shadow:0 0 12px rgba(145,132,217,.3); }
+  .btn.alt { background:var(--g800); color:var(--txt); border:1px solid var(--g700); box-shadow:none; }
+  .btn.alt:hover { border-color:var(--v500); }
+  .btn.small { font-size:14px; padding:12px 34px; }
+  .menu-col { display:flex; flex-direction:column; gap:12px; align-items:center; }
+  .stat-line { margin-top:20px; font-size:12px; font-weight:600; letter-spacing:2px; color:var(--g300); }
+  .credit { position:absolute; bottom:10px; font-size:10px; letter-spacing:2px; color:var(--g700); }
+  #bestline { font-size:13px; font-weight:700; letter-spacing:2px; color:var(--v300);
+    border:1px solid var(--g700); background:var(--g800); padding:7px 18px; border-radius:4px; margin-bottom:18px; }
+
+  /* ============ Ranger roster ============ */
+  #heroes .roster { display:grid; grid-template-columns:repeat(2, minmax(170px, 215px)); gap:14px;
+    justify-content:center; margin:6px 0 20px; width:100%; max-width:470px; }
+  .hero { background:var(--g800); border:1px solid var(--g700); border-radius:10px; padding:12px;
+    cursor:pointer; text-align:left; transition:transform .12s, border-color .12s, box-shadow .12s; }
+  .hero:hover { transform:translateY(-4px); border-color:var(--hc,var(--v500)); box-shadow:0 0 26px rgba(145,132,217,.25); }
+  .hero:active { transform:scale(.97); }
+  .hero .portrait { width:100%; aspect-ratio:4/5; margin-bottom:10px; border-radius:6px; overflow:hidden;
+    border:1px solid var(--g700); display:flex; align-items:center; justify-content:center; background:#000; position:relative; }
+  .hero .portrait::after { content:''; position:absolute; inset:0;
+    background:linear-gradient(180deg, transparent 62%, rgba(0,0,0,.55)); pointer-events:none; }
+  .hero .portrait .art { width:100%; height:100%; object-fit:cover; display:block; }
+  .hero .av { width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:52px; }
+  .hero .hn { font-weight:800; font-size:15px; letter-spacing:.5px; }
+  .hero .hr { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:2.5px; color:var(--v300); margin:3px 0 6px; }
+  .hero .hp { font-size:11.5px; font-weight:500; color:var(--g300); line-height:1.4; min-height:32px; }
+  .hero .stats { margin-top:9px; display:flex; flex-direction:column; gap:4px; }
+  .hero .st { display:flex; align-items:center; gap:8px; }
+  .hero .st span { font-size:9px; font-weight:800; letter-spacing:1.5px; color:var(--g300); width:32px; }
+  .hero .sb { flex:1; height:6px; background:var(--g900); border-radius:2px; overflow:hidden; }
+  .hero .sb i { display:block; height:100%; border-radius:2px;
+    background:linear-gradient(90deg,var(--v500),var(--v300)); }
+  .hero .deploy { margin-top:10px; text-align:center; font-size:10px; font-weight:800; letter-spacing:3px;
+    color:var(--hc,var(--v300)); border:1px solid var(--g700); border-radius:4px; padding:6px 0; }
+  .hero:hover .deploy { background:var(--hc,var(--v500)); color:#0b0c14; border-color:var(--hc,var(--v500)); }
+
+  /* ============ Ability cards ============ */
+  #upgrade .cards { display:flex; gap:14px; flex-wrap:wrap; justify-content:center; margin-top:8px; }
+  .card { width:180px; background:var(--g800); border:1px solid var(--g700); border-radius:8px;
+    padding:0 0 20px; cursor:pointer; overflow:hidden; transition:transform .12s, border-color .12s, box-shadow .12s; }
+  .card:hover { transform:translateY(-4px); border-color:var(--v500); box-shadow:0 0 26px rgba(145,132,217,.25); }
+  .card:active { transform:scale(.97); }
+  .card.weapon-card { border-color:var(--v500); }
+  .card .name { font-weight:800; font-size:14px; letter-spacing:1px; color:#16122e; padding:10px 8px;
+    background:linear-gradient(180deg,var(--v300),var(--v500)); text-transform:uppercase; }
+  .card.weapon-card .name { background:linear-gradient(180deg,#d3ccff,var(--v300)); }
+  .card .ico { display:flex; justify-content:center; font-size:42px; margin:16px 0 6px;
+    filter:drop-shadow(0 0 12px rgba(181,171,252,.3)); }
+  .card .ico svg { width:58px; height:58px; }
+  #abilities .ab svg { width:26px; height:26px; }
+  .card .desc { font-size:13px; font-weight:500; color:var(--g300); line-height:1.45; padding:4px 14px 0; }
+  .card .rar { display:inline-block; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:2px;
+    margin-top:12px; padding:3px 12px; border-radius:3px; border:1px solid var(--g700); }
+
+  /* ============ HUD ============ */
+  /* HUD layout: pause top-left, level strip top-center, currency top-right,
+     collected abilities down the left edge, HP floats over the ranger in-world */
+  #hud { position:absolute; top:0; left:0; right:0; padding:10px 12px; z-index:5; pointer-events:none;
+    display:flex; justify-content:space-between; align-items:flex-start; font-size:13px; font-weight:700; }
+  #hud .right { display:flex; flex-direction:column; gap:6px; align-items:flex-end; }
+  #hud .center { position:absolute; left:50%; transform:translateX(-50%); top:10px;
+    display:flex; flex-direction:column; align-items:center; gap:5px; }
+  #hud .lvrow { display:flex; gap:6px; }
+  .pill { display:inline-block; background:rgba(35,37,50,.92); color:var(--txt); border:1px solid var(--g700);
+    padding:5px 13px; border-radius:4px; letter-spacing:1px; }
+  .bar { background:var(--g900); border:1px solid var(--g700); border-radius:3px; overflow:hidden; }
+  .bar.xpbar { width:min(60vw,270px); height:10px; }
+  .bar.xpbar > i { display:block; height:100%; background:linear-gradient(180deg,var(--v300),var(--v500));
+    width:0%; transition:width .15s; }
+  #pauseBtn { pointer-events:auto; font-family:inherit; font-size:16px; font-weight:800; color:var(--txt);
+    background:rgba(35,37,50,.92); border:1px solid var(--g700); border-radius:6px;
+    width:38px; height:38px; cursor:pointer; }
+  #pauseBtn:active { transform:translateY(1px); }
+  #abilities { position:absolute; left:10px; top:120px; display:flex; flex-direction:column; gap:6px; }
+  #abilities .ab { width:34px; height:34px; display:flex; align-items:center; justify-content:center;
+    font-size:17px; background:rgba(35,37,50,.92); border:1px solid var(--v500); border-radius:6px;
+    box-shadow:0 0 10px rgba(145,132,217,.25); }
+  #abilities .ab.more { font-size:11px; font-weight:800; color:var(--v300); }
+  .overlay.glass { background:rgba(0,0,0,.82); }
+
+  #joyhint { position:absolute; bottom:16px; left:0; right:0; text-align:center; z-index:5; pointer-events:none; }
+  #joyhint span { display:inline-block; font-size:12px; font-weight:600; letter-spacing:1px; color:var(--g300);
+    background:rgba(35,37,50,.85); border:1px solid var(--g700); border-radius:4px; padding:7px 16px; }
+
+  /* ============ Studio splash (phase 1) ============ */
+  #splash { position:absolute; inset:0; z-index:30; background:#000;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; transition:opacity .45s; }
+  #splash.fadeout { opacity:0; pointer-events:none; }
+  .sp-mark { width:126px; height:126px; position:relative; animation:spPop .8s cubic-bezier(.34,1.56,.64,1) both; }
+  .sp-mark::after { content:''; position:absolute; inset:-14px; border-radius:50%;
+    border:2px solid rgba(145,132,217,.35); animation:spRing 1.6s .5s ease-out infinite; }
+  .sp-word { margin-top:26px; font-size:26px; font-weight:800; letter-spacing:10px; color:var(--txt); animation:rise .7s .45s both; }
+  .sp-presents { margin-top:8px; font-size:11px; font-weight:700; letter-spacing:7px; color:var(--g300);
+    text-transform:uppercase; animation:rise .7s .7s both; }
+  @keyframes spPop { 0% { transform:scale(0) rotate(-18deg); opacity:0; } 100% { transform:scale(1) rotate(0); opacity:1; } }
+  @keyframes spRing { 0% { transform:scale(.7); opacity:.8; } 100% { transform:scale(1.25); opacity:0; } }
+  @keyframes rise { 0% { opacity:0; transform:translateY(16px); } 100% { opacity:1; transform:translateY(0); } }
+
+  /* ============ Loading screen (phase 2) ============ */
+  #boot { z-index:20; transition:opacity .5s; }
+  #boot.fadeout { opacity:0; pointer-events:none; }
+  .boot-badge { font-size:12px; font-weight:700; color:var(--g300); letter-spacing:4px; text-transform:uppercase;
+    margin-bottom:26px; opacity:0; animation:rise .8s .2s forwards; }
+  .boot-logo { width:110px; height:110px; margin-bottom:20px; border-radius:22px;
+    background:linear-gradient(160deg,var(--g800),#16122e); border:1px solid var(--v500);
+    box-shadow:0 0 34px rgba(145,132,217,.35);
+    display:flex; align-items:center; justify-content:center; font-size:56px;
+    animation:bounceIn .7s cubic-bezier(.34,1.56,.64,1) both, float 2.6s 1s ease-in-out infinite; }
+  #boot h1 { animation:rise .7s .35s both; }
+  .boot-sub { font-size:12px; font-weight:700; letter-spacing:4px; text-transform:uppercase; color:var(--v300);
+    border:1px solid var(--g700); background:var(--g800); padding:6px 16px; border-radius:4px;
+    margin:4px 0 34px; animation:rise .7s .5s both; }
+  .loadwrap { position:absolute; bottom:58px; left:0; right:0; display:flex; flex-direction:column; align-items:center; gap:14px; }
+  .loadbar { position:relative; width:min(76vw,330px); height:22px; background:var(--g900); border:1px solid var(--g700);
+    border-radius:4px; overflow:hidden; }
+  .loadbar > i { display:block; height:100%; width:0%;
+    background:repeating-linear-gradient(45deg,var(--v500) 0 14px,var(--v300) 14px 28px);
+    transition:width .25s ease-out; }
+  #loadpct { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-weight:800; font-size:12px; letter-spacing:1px; color:var(--txt); text-shadow:0 1px 2px #000; }
+  .boot-tip { font-size:12px; font-weight:600; letter-spacing:1px; color:var(--g300);
+    background:var(--g800); border:1px solid var(--g700); border-radius:4px; padding:7px 18px; min-height:18px; }
+  .boot-ver { position:absolute; bottom:12px; font-size:10px; font-weight:700; letter-spacing:2px; color:var(--g700); }
+  @keyframes bounceIn { 0% { transform:scale(0) rotate(-20deg); } 100% { transform:scale(1) rotate(0); } }
+  @keyframes float { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-10px); } }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="c"></canvas>
+
+  <div id="hud" class="hidden">
+    <button id="pauseBtn">⏸</button>
+    <div class="center">
+      <div class="lvrow">
+        <span class="pill">LV <span id="level">1</span></span>
+        <span class="pill">ROOM <span id="room">1</span></span>
+      </div>
+      <div class="bar xpbar"><i id="xpbar"></i></div>
+    </div>
+    <div class="right">
+      <div class="pill">◆ <span id="coins">0</span></div>
+      <div class="pill" id="weapon">PLASMA RIFLE</div>
+    </div>
+    <div id="abilities"></div>
+  </div>
+
+  <div id="joyhint" class="hidden"><span>DRAG TO MOVE · STAND STILL TO FIRE</span></div>
+
+  <!-- Studio splash (phase 1) -->
+  <div id="splash">
+    <svg class="sp-mark" viewBox="0 0 120 120" aria-label="6dotrixx studio mark">
+      <defs>
+        <linearGradient id="spg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#9184d9"/><stop offset="1" stop-color="#b5abfc"/>
+        </linearGradient>
+      </defs>
+      <polygon points="60,6 106,32 106,88 60,114 14,88 14,32" fill="#232532"
+        stroke="url(#spg)" stroke-width="5" stroke-linejoin="round"/>
+      <polygon points="60,30 68,50 90,52 74,66 79,88 60,76 41,88 46,66 30,52 52,50"
+        fill="url(#spg)" stroke="#16171f" stroke-width="3" stroke-linejoin="round"/>
+    </svg>
+    <div class="sp-word">6DOTRIXX</div>
+    <div class="sp-presents">presents</div>
+  </div>
+
+  <!-- Loading screen (phase 2) -->
+  <div id="boot" class="overlay">
+    <div class="boot-badge">A 6dotrixx Game</div>
+    <div class="boot-logo">⚔️</div>
+    <h1>SPACE RANGERS</h1>
+    <div class="boot-sub">Hold the line</div>
+    <div class="loadwrap">
+      <div class="boot-tip" id="boottip">Deploying rangers…</div>
+      <div class="loadbar"><i id="loadfill"></i><span id="loadpct">0%</span></div>
+    </div>
+    <div class="boot-ver">v0.10.0</div>
+  </div>
+
+  <!-- Pause menu -->
+  <div id="pause" class="overlay glass hidden">
+    <h1 style="font-size:36px">PAUSED</h1>
+    <div class="menu-col" style="margin-top:12px">
+      <button class="btn small" id="resumeBtn">RESUME</button>
+      <button class="btn small alt" id="sndBtn">🔊 SOUND: ON</button>
+      <button class="btn small alt" id="quitBtn">MAIN MENU</button>
+    </div>
+  </div>
+
+  <!-- Start screen -->
+  <div id="start" class="overlay hidden">
+    <h1>SPACE RANGERS</h1>
+    <div class="tag">Roguelite Operations</div>
+    <div id="bestline" class="hidden">BEST: ROOM 1</div>
+    <p class="sub">Hostile drones have overrun the outpost.
+      Move to survive. Hold still to fire. Clear each room and push
+      through the gate — as deep as your ranger can go.</p>
+    <button class="btn" id="startBtn">DEPLOY</button>
+    <div class="stat-line">WASD / ARROWS — OR DRAG · AUTO-FIRE WHEN STILL</div>
+    <div class="credit">AN ORIGINAL GAME</div>
+  </div>
+
+  <!-- Ranger select -->
+  <div id="heroes" class="overlay hidden">
+    <h1 style="font-size:30px">SELECT RANGER</h1>
+    <p class="sub" style="margin-bottom:8px">Every ranger carries a signature weapon.</p>
+    <div class="roster" id="roster"></div>
+  </div>
+
+  <!-- Upgrade screen -->
+  <div id="upgrade" class="overlay hidden">
+    <h1 style="font-size:30px">FIELD UPGRADE</h1>
+    <p class="sub" style="margin-bottom:8px">Room clear. Choose one.</p>
+    <div class="cards" id="cards"></div>
+  </div>
+
+  <!-- Game over -->
+  <div id="over" class="overlay hidden">
+    <h1 style="font-size:34px; color:var(--danger); text-shadow:0 0 24px rgba(224,113,155,.4)">RANGER DOWN</h1>
+    <p class="sub" id="overStats">The drones took the outpost.</p>
+    <button class="btn" id="againBtn">REDEPLOY</button>
+  </div>
+</div>
+
+<script src="game.js"></script>
+</body>
+</html>
